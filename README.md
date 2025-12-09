@@ -56,6 +56,24 @@ Input → [Tile Gating Network] → Active Tile Selection
 
 ## Quick Start
 
+### Docker (Recommended)
+```bash
+# Build and verify core claim in one command
+docker build -t bbdos .
+docker run bbdos
+
+# Expected output:
+# ✓ CORE CLAIM VERIFIED
+#   4.xx speedup at 75% sparsity (target: 4.00x)
+
+# Run full test suite
+docker run bbdos python -m pytest tests/ -v
+
+# Interactive shell
+docker run -it bbdos bash
+```
+
+### From Source
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -63,14 +81,14 @@ pip install -r requirements.txt
 # Build the kernel
 cd bbdos/kernel && mkdir build && cd build && cmake .. && make && cd ../../..
 
+# Run demo (verifies core claim)
+python scripts/demo.py
+
 # Run tests (22 tests)
 python -m pytest tests/ -v
 
 # Run benchmark
 python scripts/benchmark.py
-
-# Evaluate Neural 6502
-python scripts/evaluate_cpu.py --checkpoint path/to/neural_cpu_best.pt
 ```
 
 ## Repository Structure

@@ -1,25 +1,30 @@
 # BBDOS Docker Image
 # Reproducible environment for sparse 2-bit neural computation
 #
-# Build: docker build -t bbdos:latest .
-# Run:   docker run --gpus all -it bbdos:latest
+# Quick start:
+#   docker build -t bbdos .
+#   docker run bbdos
+#
+# With GPU:
+#   docker run --gpus all bbdos
 
-# Base image: NVIDIA L4T with PyTorch for Jetson
-FROM nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
+# Use multi-platform base
+FROM python:3.11-slim
 
 # Metadata
-LABEL maintainer="Tripp & Double-D"
+LABEL maintainer="Aaron (Tripp) Josserand-Austin <iam@anjaustin.com>"
 LABEL version="1.0.0"
-LABEL description="BBDOS: BitSwitch-Based Distributed Operating System"
-
-# Set working directory
-WORKDIR /app
+LABEL description="BBDOS: 2-Bit Conditional Ternary Neural Architecture"
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     cmake \
     build-essential \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
 
 # Copy requirements first (for caching)
 COPY requirements.txt .
@@ -35,19 +40,13 @@ RUN cd bbdos/kernel && \
     cmake .. && \
     make -j$(nproc)
 
-# Alternative: Use legacy kernel build if present
-RUN if [ -f /workspace/BBDOS/build/libbitswitch.so ]; then \
-        cp /workspace/BBDOS/build/libbitswitch.so bbdos/kernel/build/; \
-    fi
-
 # Set Python path
 ENV PYTHONPATH=/app:$PYTHONPATH
 
-# Default command: run tests
-CMD ["python", "-m", "pytest", "tests/", "-v"]
+# Default: run demo to verify core claim
+CMD ["python", "scripts/demo.py"]
 
-# Useful commands:
-# - Run tests: docker run --gpus all bbdos:latest
-# - Train CPU: docker run --gpus all bbdos:latest python scripts/train_cpu.py
-# - Benchmark: docker run --gpus all bbdos:latest python scripts/benchmark.py
-# - Interactive: docker run --gpus all -it bbdos:latest bash
+# Other commands:
+#   docker run bbdos python -m pytest tests/ -v
+#   docker run bbdos python scripts/benchmark.py
+#   docker run -it bbdos bash

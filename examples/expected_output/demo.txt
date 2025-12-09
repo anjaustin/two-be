@@ -1,0 +1,20 @@
+============================================================
+BBDOS Demo - 2-Bit Conditional Ternary Neural Architecture
+============================================================
+
+[1/3] Checking BitSwitch kernel...
+      ✓ NEON kernel loaded
+
+[2/3] Running speedup benchmark...
+      Dense (0% sparse):   ~60 ms
+      Sparse (75% sparse): ~15 ms
+      Speedup: ~4.0x
+
+[3/3] Verifying core claim...
+
+============================================================
+✓ CORE CLAIM VERIFIED
+  4.xx speedup at 75% sparsity (target: 4.00x)
+============================================================
+
+NOTE: Exact times vary by hardware. Speedup should be >= 3.5x.

@@ -1,0 +1,26 @@
+$ python -m pytest tests/ -v
+
+tests/test_cpu.py::TestModelArchitecture::test_default_config PASSED
+tests/test_cpu.py::TestModelArchitecture::test_custom_config PASSED
+tests/test_cpu.py::TestModelArchitecture::test_parameter_count PASSED
+tests/test_cpu.py::TestModelArchitecture::test_forward_shape PASSED
+tests/test_cpu.py::TestModelArchitecture::test_gradient_flow PASSED
+tests/test_cpu.py::TestPredictState::test_predict_returns_values PASSED
+tests/test_cpu.py::TestOpcodeAccuracy::test_nop_preserves_state PASSED
+tests/test_cpu.py::TestOpcodeAccuracy::test_inx_increments_x PASSED
+tests/test_cpu.py::TestOpcodeAccuracy::test_tax_transfers_a_to_x PASSED
+tests/test_cpu.py::TestOpcodeAccuracy::test_clc_clears_carry PASSED
+tests/test_cpu.py::TestOpcodeAccuracy::test_sec_sets_carry PASSED
+tests/test_cpu.py::TestGateRouting::test_gates_are_one_hot PASSED
+tests/test_kernel.py::TestPackUnpack::test_roundtrip PASSED
+tests/test_kernel.py::TestPackUnpack::test_encoding_values PASSED
+tests/test_kernel.py::TestPackUnpack::test_compression_ratio PASSED
+tests/test_kernel.py::TestForward::test_basic_forward PASSED
+tests/test_kernel.py::TestForward::test_tile_gating PASSED
+tests/test_kernel.py::TestSpeedup::test_speedup_at_75_percent_sparsity PASSED
+tests/test_kernel.py::TestPyTorchIntegration::test_module_forward PASSED
+tests/test_kernel.py::TestPyTorchIntegration::test_gradient_flow PASSED
+tests/test_kernel.py::TestPyTorchIntegration::test_pytorch_cpp_match PASSED
+tests/test_kernel.py::TestNumericalAccuracy::test_accumulation_accuracy PASSED
+
+============================== 22 passed ==============================
