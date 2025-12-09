@@ -1,107 +1,138 @@
-# BBDOS: BitSwitch-Based Distributed Operating System
+# BBDOS
 
-**Sparse 2-bit neural computation for efficient inference**
+**2-Bit Conditional Ternary Neural Architecture with Learned Computational Sparsity**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform: ARM64](https://img.shields.io/badge/Platform-ARM64-blue.svg)]()
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10+-green.svg)]()
 
+> *Paper: [docs/paper/bbdos_paper_WIP.pdf](docs/paper/bbdos_paper_WIP.pdf) (Work in Progress)*
+
 ---
 
-## What is BBDOS?
+## Abstract
 
-BBDOS demonstrates that **sparse 2-bit neural networks can learn meaningful computation**. We implement:
+BBDOS (BitSwitch) is a 2-bit conditional ternary neural architecture that learns to allocate computation proportionally to semantic entropy. Unlike masked sparsity approaches that execute full dense operations and zero unwanted activations, BBDOS **physically skips inactive computation** through dynamic tile-based gating, achieving linear speedup that scales directly with sparsity level.
 
-1. **BitSwitch Kernel**: A sparse matrix multiplication kernel using 2-bit (ternary) weights with tile-based routing. Achieves **4x speedup** at 75% sparsity on ARM NEON.
+The architecture combines:
+- **Ternary weights** {-1, 0, +1} encoded in 2 bits per weight
+- **Learned tile activation** patterns for conditional computation
+- **16x memory compression** versus FP32
+- **4.00x inference speedup** at 75% sparsity
 
-2. **Neural 6502**: A neural network that learns to emulate the MOS 6502 CPU by predicting register state transitions. Achieves **84.4% opcode accuracy** across 3,136 tests.
-
-3. **BBDOS Language Model**: A 38M parameter transformer with BitSwitch layers, trained on TinyStories to **0.43 cross-entropy loss**.
+The 2-bit encoding reserves 25% of the bit space (the **"Dark State"**) for future extensions, enabling backward-compatible architectural evolution.
 
 ## Key Results
 
-| Component | Metric | Value |
-|-----------|--------|-------|
+| Experiment | Metric | Value |
+|------------|--------|-------|
+| BitSwitch Kernel | Memory compression vs FP32 | **16x** |
 | BitSwitch Kernel | Speedup @ 75% sparsity | **4.00x** |
-| BitSwitch Kernel | Numerical accuracy | **0.000069** max diff |
-| Neural 6502 | Opcode accuracy | **84.4%** |
-| Neural 6502 | SP register accuracy | **99.9%** |
-| BBDOS LM | Final loss | **0.4347** |
+| BitSwitch Kernel | Numerical accuracy vs PyTorch | **0.000069** max error |
+| Neural 6502 | Functional accuracy (3,136 tests) | **84.4%** |
+| Neural 6502 | Stack pointer accuracy | **99.9%** |
+| Neural 6502 | Shift operations (ASL, LSR) | **96-97%** |
+| Neural 6502 | Carry arithmetic (ADC) | **3.1%** |
+| BBDOS LM (38.2M params) | Final loss on TinyStories | **0.43** |
+
+### The "Savant CPU" Phenomenon
+
+The Neural 6502 reveals a striking pattern: neural networks can master control flow and bitwise logic (96-99% accuracy) but fail catastrophically on multi-register arithmetic coordination (3.1% on ADC). This sharp boundary between learnable and unlearnable deterministic patterns provides new insights into neural program synthesis capabilities.
+
+## Architecture
+
+```
+Input → [Tile Gating Network] → Active Tile Selection
+                                      ↓
+        ┌─────────────────────────────┴─────────────────────────────┐
+        │                                                           │
+    [Tile 0]    [Tile 1]    [Tile 2]    [Tile 3]                   │
+    (active)    (SKIPPED)   (active)    (SKIPPED)    ← Physical skip
+        │                       │                                   │
+        └───────────────────────┴───────────────────────────────────┘
+                                      ↓
+                               Output (sparse)
+```
 
 ## Quick Start
 
 ```bash
-# Clone and enter directory
-cd bbdos_v2
-
 # Install dependencies
 pip install -r requirements.txt
 
 # Build the kernel
 cd bbdos/kernel && mkdir build && cd build && cmake .. && make && cd ../../..
 
-# Run kernel tests
-python -m pytest tests/test_kernel.py -v
+# Run tests (22 tests)
+python -m pytest tests/ -v
 
-# Run a quick CPU inference
-python scripts/evaluate_cpu.py --checkpoint ../neural_cpu_best.pt
+# Run benchmark
+python scripts/benchmark.py
 
-# Generate text with BBDOS LM
-python scripts/generate.py --checkpoint ../bbdos_research_final.pt --prompt "Once upon a time"
+# Evaluate Neural 6502
+python scripts/evaluate_cpu.py --checkpoint path/to/neural_cpu_best.pt
+```
+
+## Repository Structure
+
+```
+two-be/
+├── bbdos/                  # Main package
+│   ├── kernel/             # BitSwitch NEON/CUDA kernel
+│   ├── cpu/                # Neural 6502 model
+│   └── lm/                 # NanoLPU language model
+├── configs/                # YAML configs (seeded for reproducibility)
+├── scripts/                # Training, evaluation, benchmarking
+├── tests/                  # 22 pytest tests
+├── docs/
+│   ├── paper/              # Paper draft (WIP)
+│   ├── ARCHITECTURE.md     # Technical deep-dive
+│   └── REPRODUCING.md      # Step-by-step reproduction guide
+└── Dockerfile              # Reproducible environment
 ```
 
 ## Hardware Requirements
 
 **Tested on:**
-- NVIDIA Jetson AGX Thor (ARM64, Blackwell GPU)
+- NVIDIA Jetson AGX Thor (ARM64)
 - 64GB unified memory
 - Ubuntu 22.04
 
-**Minimum requirements:**
-- ARM64 processor with NEON support (for kernel acceleration)
+**Minimum:**
+- ARM64 with NEON support (or x86_64 with scalar fallback)
 - 16GB RAM
 - CUDA 11.8+ (for GPU training)
 
-## Repository Structure
-
-```
-bbdos_v2/
-├── bbdos/                  # Main package
-│   ├── kernel/             # BitSwitch ARM NEON kernel
-│   ├── cpu/                # Neural 6502 model
-│   └── lm/                 # Language model
-├── configs/                # Hyperparameter configs
-├── scripts/                # Training and evaluation
-├── tests/                  # Test suite
-└── docs/                   # Documentation
-```
-
 ## Reproducing Results
 
-See [docs/REPRODUCING.md](docs/REPRODUCING.md) for complete reproduction instructions.
+See [docs/REPRODUCING.md](docs/REPRODUCING.md) for complete instructions.
 
-**Quick reproduction:**
 ```bash
-# 1. Generate CPU traces (requires py65)
-python scripts/generate_traces.py --output data/traces.pt --cycles 50000000
+# Generate 50M CPU traces
+python scripts/generate_traces.py --cycles 50000000 --seed 42
 
-# 2. Train Neural 6502 (10 epochs, ~2 hours on Thor)
+# Train Neural 6502
 python scripts/train_cpu.py --config configs/neural_cpu.yaml
 
-# 3. Evaluate
-python scripts/evaluate_cpu.py --checkpoint checkpoints/best.pt
+# Verify speedup claim
+python scripts/benchmark.py
+# Expected: ✓ KEY CLAIM VERIFIED: 4.00x speedup at 75% sparsity
 ```
 
 ## Citation
 
 ```bibtex
-@software{bbdos2024,
-  author = {Tripp and Double-D and Team},
-  title = {BBDOS: BitSwitch-Based Distributed Operating System},
-  year = {2024},
-  url = {https://github.com/[repo]}
+@article{josserandaustin2025bbdos,
+  title={BBDOS: 2-Bit Conditional Ternary Neural Architecture with Learned Computational Sparsity},
+  author={Josserand-Austin, Aaron (Tripp)},
+  year={2025},
+  month={December},
+  note={Independent Research}
 }
 ```
+
+**Author:** Aaron (Tripp) Josserand-Austin — iam@anjaustin.com  
+**Date:** Monday, 08 DEC 2025, 00:21 Hrs
 
 ## License
 
@@ -109,10 +140,11 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-- Built on Jetson AGX Thor (NVIDIA)
+- NVIDIA Jetson AGX Thor platform
 - TinyStories dataset (Microsoft Research)
 - py65 6502 emulator
+- Double-D (AI collaborator)
 
 ---
 
-*"Legit 2-Bit"* - BBDOS v1.0.0
+*"Legit 2-Bit"* — BBDOS v1.0.0
