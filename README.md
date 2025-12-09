@@ -93,12 +93,12 @@ python scripts/evaluate_cpu.py --checkpoint weights/neural_cpu_best.pt
 
 ## Pretrained Weights
 
-Included in `weights/`:
+| Model | File | Size | Metric | Status |
+|-------|------|------|--------|--------|
+| Neural 6502 | `weights/neural_cpu_best.pt` | 9.3 MB | 84.4% opcode accuracy | Included |
+| BBDOS LM | `bbdos_research_final.pt` | 146 MB | 0.43 loss on TinyStories | Contact author |
 
-| Model | File | Size | Metric |
-|-------|------|------|--------|
-| Neural 6502 | `neural_cpu_best.pt` | 9.3 MB | 84.4% opcode accuracy |
-| BBDOS LM | `bbdos_research_final.pt` | 146 MB | 0.43 loss on TinyStories |
+*Note: LM weights exceed GitHub's 100MB limit. Contact iam@anjaustin.com for access.*
 
 ## Repository Structure
 
