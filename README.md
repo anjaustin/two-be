@@ -6,7 +6,7 @@
 [![Platform: ARM64](https://img.shields.io/badge/Platform-ARM64-blue.svg)]()
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10+-green.svg)]()
 
-> *Paper: [docs/paper/bbdos_paper_WIP.pdf](docs/paper/bbdos_paper_WIP.pdf) (Work in Progress)*
+> *Paper: [PDF](docs/paper/bbdos_paper_WIP.pdf) | [LaTeX source](docs/paper/bbdos_paper.tex) (compile with `pdflatex`)*
 
 ---
 
@@ -120,6 +120,9 @@ docker run -it bbdos bash
 # Install dependencies
 pip install -r requirements.txt
 
+# For development (editable install)
+pip install -e .
+
 # Build the kernel
 cd bbdos/kernel && mkdir build && cd build && cmake .. && make && cd ../../..
 
@@ -140,7 +143,7 @@ python scripts/evaluate_cpu.py --checkpoint weights/neural_cpu_best.pt
 | Neural 6502 | `weights/neural_cpu_best.pt` | 9.3 MB | 84.4% opcode accuracy | Included |
 | BBDOS LM | `bbdos_research_final.pt` | 146 MB | 0.43 loss on TinyStories | Contact author |
 
-*Note: LM weights exceed GitHub's 100MB limit. Contact iam@anjaustin.com for access.*
+*Note: LM weights exceed GitHub's 100MB limit. See [docs/WEIGHTS.md](docs/WEIGHTS.md) for options including Git LFS.*
 
 ## Repository Structure
 
@@ -198,7 +201,7 @@ python scripts/benchmark.py
 | Conditional computation | Mixture of Experts (Shazeer et al., 2017) | Tile-based hard gating |
 | Sparse inference | Structured pruning literature | Physical skip via gating |
 
-**What may be novel in this work:**
+**Novel contributions:**
 - Combination of ternary weights + learned tile gating + physical skip in one architecture
 - ARM NEON kernel implementation achieving linear speedup
 - "Savant CPU" phenomenon documenting neural network limitations on deterministic arithmetic
@@ -208,7 +211,7 @@ python scripts/benchmark.py
 - The concept of conditional computation
 - Sparse neural network architectures
 
-We encourage readers to cite the foundational work above alongside this implementation.
+Please cite the foundational work above when building on these techniques.
 
 ## Citation
 
