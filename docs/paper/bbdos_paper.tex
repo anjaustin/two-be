@@ -78,14 +78,14 @@ Binary & Value & Operation \\
 \texttt{00} & 0 & Skip \\
 \texttt{01} & +1 & Add \\
 \texttt{10} & -1 & Subtract \\
-\texttt{11} & 0 & Reserved (Dark State) \\
+\texttt{11} & 0 & Reserved (Possibility State) \\
 \bottomrule
 \end{tabular}
 \caption{2-bit ternary weight encoding}
 \label{tab:encoding}
 \end{table}
 
-The ``Dark State'' (\texttt{11}) reserves 25\% of the encoding space for future extensions such as activation-dependent weights or learned skip patterns.
+The ``Possibility State'' (\texttt{11}) reserves 25\% of the encoding space for future extensions such as activation-dependent weights or learned skip patterns.
 
 \subsection{BitSwitch Forward Pass}
 

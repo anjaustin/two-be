@@ -20,7 +20,7 @@ The architecture combines:
 - **16x memory compression** versus FP32
 - **4.00x inference speedup** at 75% sparsity
 
-The 2-bit encoding reserves 25% of the bit space (the **"Dark State"**) for future extensions, enabling backward-compatible architectural evolution.
+The 2-bit encoding reserves 25% of the bit space (the **"Possibility State"**) for future extensions, enabling backward-compatible architectural evolution.
 
 ## Key Results
 
@@ -75,6 +75,26 @@ Input → [Tile Gating Network] → Active Tile Selection
                                       ↓
                                Output (sparse)
 ```
+
+### Memory Compression: Reality Check
+
+The **16x compression** applies to weight storage specifically:
+
+| Component | FP32 Baseline | BitSwitch | Compression |
+|-----------|---------------|-----------|-------------|
+| Weights | 32 bits/weight | 2 bits/weight | **16x** |
+| Scales | - | 32 bits/output | overhead |
+| Activations | 32 bits | 32 bits | 1x |
+| Gate masks | - | 8 bits/tile | overhead |
+
+**When 16x matters:** Large models, batch size 1, weight-dominated memory (e.g., LLM inference on edge devices).
+
+**When it doesn't:** Small models, large batches, compute-bound workloads. Effective compression drops to ~7-8x.
+
+**Research opportunities not explored here:**
+- FP16/INT8 activations (potential additional 2-4x)
+- Scale quantization (FP16 or per-tile sharing)
+- Sparse activation storage
 
 ## Quick Start
 
@@ -167,6 +187,28 @@ python scripts/train_cpu.py --config configs/neural_cpu.yaml
 python scripts/benchmark.py
 # Expected: ✓ KEY CLAIM VERIFIED: 4.00x speedup at 75% sparsity
 ```
+
+## Prior Work & What's Novel
+
+**This builds on established research:**
+
+| Technique | Prior Work | What We Use |
+|-----------|------------|-------------|
+| Ternary weights | TWN (Li et al., 2016), TTQ (Zhu et al., 2017) | 2-bit encoding with Possibility State |
+| Conditional computation | Mixture of Experts (Shazeer et al., 2017) | Tile-based hard gating |
+| Sparse inference | Structured pruning literature | Physical skip via gating |
+
+**What may be novel in this work:**
+- Combination of ternary weights + learned tile gating + physical skip in one architecture
+- ARM NEON kernel implementation achieving linear speedup
+- "Savant CPU" phenomenon documenting neural network limitations on deterministic arithmetic
+
+**What is NOT claimed as novel:**
+- Ternary quantization itself
+- The concept of conditional computation
+- Sparse neural network architectures
+
+We encourage readers to cite the foundational work above alongside this implementation.
 
 ## Citation
 
