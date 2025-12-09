@@ -39,6 +39,9 @@ data/
 *.pt
 *.pth
 
+# Exception: include pretrained weights
+!weights/*.pt
+
 # Logs
 *.log
 

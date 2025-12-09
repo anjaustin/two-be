@@ -87,9 +87,18 @@ python scripts/demo.py
 # Run tests (22 tests)
 python -m pytest tests/ -v
 
-# Run benchmark
-python scripts/benchmark.py
+# Evaluate Neural 6502 with pretrained weights
+python scripts/evaluate_cpu.py --checkpoint weights/neural_cpu_best.pt
 ```
+
+## Pretrained Weights
+
+Included in `weights/`:
+
+| Model | File | Size | Metric |
+|-------|------|------|--------|
+| Neural 6502 | `neural_cpu_best.pt` | 9.3 MB | 84.4% opcode accuracy |
+| BBDOS LM | `bbdos_research_final.pt` | 146 MB | 0.43 loss on TinyStories |
 
 ## Repository Structure
 
