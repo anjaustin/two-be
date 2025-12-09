@@ -1,0 +1,312 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[margin=1in]{geometry}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny,
+    tabsize=2
+}
+
+\title{BBDOS: 2-Bit Conditional Ternary Neural Architecture\\with Learned Computational Sparsity}
+
+\author{Aaron (Tripp) Josserand-Austin\\
+\texttt{iam@anjaustin.com}\\
+Independent Research}
+
+\date{December 2025}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We present BBDOS (BitSwitch), a 2-bit conditional ternary neural architecture that learns to allocate computation proportionally to semantic entropy. Unlike masked sparsity approaches that execute full dense operations and zero unwanted activations, BBDOS \textbf{physically skips inactive computation} through dynamic tile-based gating, achieving linear speedup that scales directly with sparsity level. The architecture combines ternary weights $\{-1, 0, +1\}$ encoded in 2 bits, learned tile activation patterns, 16$\times$ memory compression versus FP32, and 4.00$\times$ inference speedup at 75\% sparsity. We validate the approach on two tasks: a Neural 6502 CPU emulator achieving 66.4\% full-state accuracy (91\% per-register average), and a 38.2M parameter language model reaching 0.43 loss on TinyStories. The Neural 6502 experiments reveal a ``Savant CPU'' phenomenon where neural networks master control flow and bitwise operations (96-99\%) but fail catastrophically on carry-based arithmetic (3.1\%), suggesting fundamental limitations in neural program synthesis.
+\end{abstract}
+
+\section{Introduction}
+
+Modern neural networks achieve impressive results but remain computationally expensive. While quantization and pruning reduce memory footprints, they often fail to deliver proportional speedups because:
+
+\begin{enumerate}
+    \item \textbf{Masked sparsity} still executes dense operations, just with zeros
+    \item \textbf{Unstructured pruning} creates irregular memory access patterns
+    \item \textbf{Static compression} cannot adapt to input-dependent complexity
+\end{enumerate}
+
+We propose BBDOS, an architecture that addresses all three issues through:
+
+\begin{itemize}
+    \item \textbf{Ternary weights} ($\{-1, 0, +1\}$) enabling multiply-free inference via add/subtract
+    \item \textbf{2-bit encoding} achieving 16$\times$ compression with a reserved ``Dark State''
+    \item \textbf{Tile-based gating} that physically skips inactive computation
+    \item \textbf{Learned routing} that allocates compute based on input complexity
+\end{itemize}
+
+\section{Architecture}
+
+\subsection{Weight Encoding}
+
+Each weight is encoded in 2 bits according to:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ccc@{}}
+\toprule
+Binary & Value & Operation \\
+\midrule
+\texttt{00} & 0 & Skip \\
+\texttt{01} & +1 & Add \\
+\texttt{10} & -1 & Subtract \\
+\texttt{11} & 0 & Reserved (Dark State) \\
+\bottomrule
+\end{tabular}
+\caption{2-bit ternary weight encoding}
+\label{tab:encoding}
+\end{table}
+
+The ``Dark State'' (\texttt{11}) reserves 25\% of the encoding space for future extensions such as activation-dependent weights or learned skip patterns.
+
+\subsection{BitSwitch Forward Pass}
+
+The forward pass processes tiles conditionally:
+
+\begin{algorithm}
+\caption{BitSwitch Forward Pass}
+\begin{algorithmic}[1]
+\Require Input $\mathbf{x}$, packed weights $\mathbf{W}_{\text{packed}}$, scales $\mathbf{s}$, gate mask $\mathbf{g}$
+\Ensure Output $\mathbf{y}$
+\State $\mathbf{y} \gets \mathbf{0}$
+\For{each tile $t = 1 \ldots T$}
+    \If{$\mathbf{g}[t] = 0$}
+        \State \textbf{continue} \Comment{Physical skip}
+    \EndIf
+    \For{each output $o$ in tile $t$}
+        \State $\text{acc} \gets 0$
+        \For{each input $i$}
+            \State $w \gets \text{unpack}(\mathbf{W}_{\text{packed}}[o, i])$
+            \If{$w = +1$} $\text{acc} \gets \text{acc} + \mathbf{x}[i]$
+            \ElsIf{$w = -1$} $\text{acc} \gets \text{acc} - \mathbf{x}[i]$
+            \EndIf
+        \EndFor
+        \State $\mathbf{y}[o] \gets \text{acc} \cdot \mathbf{s}[o]$
+    \EndFor
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Tile Gating Network}
+
+A lightweight router network computes gate activations:
+
+\begin{equation}
+\mathbf{g} = \text{TopK}(\text{softmax}(\mathbf{W}_g \mathbf{x} + \mathbf{b}_g))
+\end{equation}
+
+During training, we use the straight-through estimator (STE) to allow gradient flow through the hard gating decision.
+
+\section{Experiments}
+
+\subsection{BitSwitch Kernel Benchmarks}
+
+We implemented the BitSwitch kernel in C++ with ARM NEON vectorization for the Jetson AGX Thor platform.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}cccc@{}}
+\toprule
+Sparsity & Active Tiles & Time (ms) & Speedup \\
+\midrule
+0\% & 4/4 & 140.70 & 1.00$\times$ \\
+25\% & 3/4 & 105.41 & 1.33$\times$ \\
+50\% & 2/4 & 70.28 & 2.00$\times$ \\
+75\% & 1/4 & 35.15 & \textbf{4.00$\times$} \\
+\bottomrule
+\end{tabular}
+\caption{BitSwitch kernel speedup with tile sparsity (ARM NEON)}
+\label{tab:speedup}
+\end{table}
+
+Key findings:
+\begin{itemize}
+    \item Linear speedup scaling: $\text{speedup} \approx 1 / (1 - \text{sparsity})$
+    \item Maximum numerical error vs PyTorch: $6.9 \times 10^{-5}$ (floating-point precision)
+    \item Memory compression: 16$\times$ vs FP32 for weight storage
+\end{itemize}
+
+\subsection{Neural 6502 CPU Emulator}
+
+We trained a transformer model to predict 6502 CPU state transitions from opcode inputs.
+
+\subsubsection{Model Architecture}
+\begin{itemize}
+    \item Parameters: 2.42M
+    \item Layers: 6 transformer blocks with BitSwitch FFN
+    \item Input: 9 tokens (A, X, Y, SP, P, PCH, PCL, Op, Val)
+    \item Output: 7 register predictions (A, X, Y, SP, P, PCH, PCL)
+\end{itemize}
+
+\subsubsection{Training Data}
+\begin{itemize}
+    \item 50M CPU cycles generated via py65 emulator
+    \item Random initial states and opcode sequences
+    \item Seed 42 for reproducibility
+\end{itemize}
+
+\subsubsection{Accuracy Metrics}
+
+We report multiple metrics for transparency:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lcp{6cm}@{}}
+\toprule
+Metric & Value & Description \\
+\midrule
+Full-state accuracy & \textbf{66.4\%} & All 7 registers correct simultaneously \\
+Per-register average & \textbf{$\sim$91\%} & Mean accuracy across individual registers \\
+Opcode-weighted & \textbf{84.4\%} & Weighted average across 3,136 opcode tests \\
+\bottomrule
+\end{tabular}
+\caption{Neural 6502 accuracy metrics}
+\label{tab:cpu-accuracy}
+\end{table}
+
+\subsubsection{Per-Register Breakdown}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Register & Accuracy & Notes \\
+\midrule
+SP (Stack Pointer) & 99.9\% & Near-perfect \\
+X (Index Register) & 98.4\% & Excellent \\
+Y (Index Register) & 98.4\% & Excellent \\
+PCH (Program Counter High) & 97.3\% & Control flow mastered \\
+PCL (Program Counter Low) & 96.1\% & Control flow mastered \\
+A (Accumulator) & 83.5\% & Arithmetic challenges \\
+P (Status Flags) & 81.5\% & Flag computation harder \\
+\bottomrule
+\end{tabular}
+\caption{Per-register prediction accuracy}
+\label{tab:per-register}
+\end{table}
+
+\subsubsection{The ``Savant CPU'' Phenomenon}
+
+The most striking finding is a sharp boundary between learnable and unlearnable operations:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Operation Type & Accuracy & Category \\
+\midrule
+Stack operations (PHA, PLA, PHP) & 99.9\% & \textcolor{green}{Mastered} \\
+Branch instructions (BEQ, BNE, etc.) & 96-100\% & \textcolor{green}{Mastered} \\
+Bitwise shifts (ASL, LSR, ROL, ROR) & 96-97\% & \textcolor{green}{Mastered} \\
+Register transfers (TAX, TXA, etc.) & 75-87\% & \textcolor{orange}{Good} \\
+Flag operations (CLC, SEC, CLI, SEI) & 100\% & \textcolor{green}{Mastered} \\
+Carry arithmetic (ADC, SBC) & 3-6\% & \textcolor{red}{Broken} \\
+\bottomrule
+\end{tabular}
+\caption{Accuracy by operation type}
+\label{tab:savant}
+\end{table}
+
+The model exhibits ``savant-like'' behavior: exceptional performance on pattern-based operations but catastrophic failure on multi-step carry propagation. This suggests that neural networks struggle with operations requiring precise bit-level coordination across multiple registers.
+
+\subsection{BBDOS Language Model}
+
+We trained a 38.2M parameter language model on TinyStories using BitSwitch sparse layers.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+Metric & Value \\
+\midrule
+Parameters & 38.2M \\
+Architecture & 12-layer transformer with BitSwitch FFN \\
+Training steps & 15,000 \\
+Final loss & \textbf{0.43} \\
+\bottomrule
+\end{tabular}
+\caption{BBDOS language model results}
+\label{tab:lm}
+\end{table}
+
+\section{Discussion}
+
+\subsection{Memory Compression Caveats}
+
+The 16$\times$ compression claim applies specifically to weight storage:
+
+\begin{equation}
+\text{Compression} = \frac{32 \text{ bits (FP32)}}{2 \text{ bits (ternary)}} = 16\times
+\end{equation}
+
+However, the full inference memory footprint includes:
+\begin{itemize}
+    \item Weights: 16$\times$ compressed
+    \item Scales: FP32 (one per output)
+    \item Activations: FP32 (unchanged)
+    \item Gate masks: INT8
+\end{itemize}
+
+For weight-dominated workloads (large models, batch size 1), effective compression approaches 16$\times$. For compute-bound scenarios with larger batches, effective compression is lower ($\sim$7-8$\times$).
+
+\subsection{Limitations}
+
+\begin{enumerate}
+    \item \textbf{CPU-only kernel}: Current implementation targets ARM NEON; CUDA support is future work
+    \item \textbf{Training overhead}: Ternary quantization with STE adds training complexity
+    \item \textbf{Arithmetic operations}: The ``Savant CPU'' phenomenon suggests fundamental limitations for precise deterministic computation
+\end{enumerate}
+
+\section{Conclusion}
+
+BBDOS demonstrates that conditional sparse computation with ternary weights can achieve significant speedups (4$\times$ at 75\% sparsity) while maintaining model quality. The Neural 6502 experiments reveal an unexpected ``Savant CPU'' phenomenon with implications for neural program synthesis research.
+
+\section*{Reproducibility}
+
+All code, weights, and training configurations are available at:
+\begin{center}
+\url{https://github.com/[repository]/two-be}
+\end{center}
+
+To verify the core speedup claim:
+\begin{lstlisting}[language=bash]
+docker build -t bbdos .
+docker run bbdos
+# Expected: 4.xx speedup at 75% sparsity
+\end{lstlisting}
+
+\section*{Acknowledgments}
+
+This work was conducted on the NVIDIA Jetson AGX Thor platform. We thank Microsoft Research for the TinyStories dataset and the py65 project for the 6502 emulator.
+
+\bibliographystyle{plain}
+
+\end{document}

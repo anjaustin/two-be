@@ -29,11 +29,33 @@ The 2-bit encoding reserves 25% of the bit space (the **"Dark State"**) for futu
 | BitSwitch Kernel | Memory compression vs FP32 | **16x** |
 | BitSwitch Kernel | Speedup @ 75% sparsity | **4.00x** |
 | BitSwitch Kernel | Numerical accuracy vs PyTorch | **0.000069** max error |
-| Neural 6502 | Functional accuracy (3,136 tests) | **84.4%** |
+| Neural 6502 | Full-state accuracy | **66.4%** |
+| Neural 6502 | Per-register average | **~91%** |
 | Neural 6502 | Stack pointer accuracy | **99.9%** |
 | Neural 6502 | Shift operations (ASL, LSR) | **96-97%** |
 | Neural 6502 | Carry arithmetic (ADC) | **3.1%** |
 | BBDOS LM (38.2M params) | Final loss on TinyStories | **0.43** |
+
+### Neural 6502 Accuracy Metrics
+
+We report multiple accuracy metrics for transparency (see [docs/METRICS.md](docs/METRICS.md) for details):
+
+| Metric | Value | Description |
+|--------|-------|-------------|
+| Full-state accuracy | **66.4%** | All 7 registers predicted correctly simultaneously |
+| Per-register average | **~91%** | Mean accuracy across individual registers |
+| Opcode-weighted | **84.4%** | Weighted average across 3,136 opcode tests |
+
+**Per-Register Breakdown:**
+| Register | Accuracy | Notes |
+|----------|----------|-------|
+| SP (Stack Pointer) | 99.9% | Near-perfect stack operations |
+| X (Index) | 98.4% | Excellent |
+| Y (Index) | 98.4% | Excellent |
+| PCH (PC High) | 97.3% | Control flow mastered |
+| PCL (PC Low) | 96.1% | Control flow mastered |
+| A (Accumulator) | 83.5% | Arithmetic challenges |
+| P (Flags) | 81.5% | Flag prediction harder |
 
 ### The "Savant CPU" Phenomenon
 
