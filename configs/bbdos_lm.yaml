@@ -1,0 +1,56 @@
+# BBDOS Language Model Configuration
+# NanoLPU with BitSwitch sparse layers
+
+model:
+  name: "NanoLPU"
+  vocab_size: 73  # Character-level
+  d_model: 512
+  n_heads: 8
+  n_layers: 12
+  num_tiles: 4
+  block_size: 512
+  dropout: 0.1
+  
+  # BitSwitch settings
+  bitswitch:
+    enabled: true
+    quantize: true  # 2-bit weights
+    noise_injection: 1.0  # Training noise for load balancing
+
+training:
+  batch_size: 32
+  learning_rate: 0.0003
+  weight_decay: 0.01
+  max_steps: 15000
+  
+  # Load balancing loss
+  balance_weight: 0.5
+  
+  # Reproducibility
+  seed: 42
+  deterministic: true
+  
+  # Checkpointing
+  save_every: 1000  # steps
+  checkpoint_dir: "checkpoints/lm"
+
+data:
+  dataset: "roneneldan/TinyStories"
+  max_length: 512
+  num_workers: 4
+
+generation:
+  max_tokens: 200
+  temperature: 0.7
+  top_p: 0.9
+  
+  # Test prompts
+  prompts:
+    - "Once upon a time"
+    - "The little girl"
+    - "One day, a boy"
+
+logging:
+  level: "INFO"
+  log_every: 100
+  tensorboard: true

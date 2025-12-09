@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
+        pip install -e ".[dev]"
+    
+    - name: Build kernel (x86 fallback)
+      run: |
+        cd bbdos/kernel
+        mkdir -p build && cd build
+        cmake ..
+        make
+    
+    - name: Run tests
+      run: |
+        pytest tests/ -v --tb=short
+    
+    - name: Check import
+      run: |
+        python -c "import bbdos; print(f'BBDOS version: {bbdos.__version__}')"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install linters
+      run: |
+        pip install ruff
+    
+    - name: Run ruff
+      run: |
+        ruff check bbdos/ --ignore E501,F401
+      continue-on-error: true
+
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
+        pip install numpy
+    
+    - name: Build kernel
+      run: |
+        cd bbdos/kernel
+        mkdir -p build && cd build
+        cmake ..
+        make
+    
+    - name: Run benchmark
+      run: |
+        cd ..
+        python bbdos_v2/scripts/benchmark.py --iters 10
+      continue-on-error: true  # May not achieve 4x on x86
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check documentation exists
+      run: |
+        test -f README.md
+        test -f docs/ARCHITECTURE.md
+        test -f docs/REPRODUCING.md
+        echo "All documentation files present"

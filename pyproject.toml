@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bbdos"
+version = "1.0.0"
+description = "BitSwitch-Based Distributed Operating System - Sparse 2-bit neural computation"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Tripp & Double-D", email = "bbdos@example.com"}
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+keywords = ["neural-network", "sparse", "quantization", "2-bit", "cpu-emulation", "transformer"]
+
+dependencies = [
+    "torch>=2.0.0",
+    "numpy>=1.24.0",
+    "pyyaml>=6.0",
+    "tqdm>=4.65.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+train = [
+    "datasets>=2.14.0",
+    "py65>=1.1.0",
+    "matplotlib>=3.7.0",
+]
+all = [
+    "bbdos[dev,train]",
+]
+
+[project.urls]
+Homepage = "https://github.com/bbdos/bbdos"
+Documentation = "https://github.com/bbdos/bbdos/docs"
+Repository = "https://github.com/bbdos/bbdos"
+
+[project.scripts]
+bbdos-train-cpu = "scripts.train_cpu:main"
+bbdos-train-lm = "scripts.train_lm:main"
+bbdos-benchmark = "scripts.benchmark:main"
+bbdos-evaluate = "scripts.evaluate_cpu:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bbdos*"]
+
+[tool.setuptools.package-data]
+"bbdos.kernel" = ["*.h", "*.cpp", "CMakeLists.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["bbdos"]
+omit = ["tests/*", "scripts/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

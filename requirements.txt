@@ -1,0 +1,22 @@
+# BBDOS Dependencies
+# Tested with Python 3.10+ on ARM64
+
+# Core
+torch>=2.0.0
+numpy>=1.24.0
+
+# Configuration
+pyyaml>=6.0
+omegaconf>=2.3.0
+
+# Data
+datasets>=2.14.0
+py65>=1.1.0
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Utilities
+tqdm>=4.65.0
+matplotlib>=3.7.0

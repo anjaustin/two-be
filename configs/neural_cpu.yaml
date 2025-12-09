@@ -1,0 +1,74 @@
+# Neural 6502 Configuration
+# This config reproduces the results from the paper
+
+model:
+  name: "NeuralCPU"
+  d_model: 256
+  n_heads: 4
+  n_layers: 6
+  num_tiles: 4
+  dropout: 0.1
+  
+  # Register prediction heads (all 256 classes)
+  registers:
+    - A      # Accumulator
+    - X      # Index X
+    - Y      # Index Y  
+    - SP     # Stack Pointer
+    - P      # Processor Status (Flags)
+    - PCH    # Program Counter High
+    - PCL    # Program Counter Low
+
+training:
+  batch_size: 512
+  learning_rate: 0.001
+  weight_decay: 0.01
+  epochs: 10
+  warmup_steps: 1000
+  
+  # Reproducibility
+  seed: 42
+  deterministic: true
+  
+  # Checkpointing
+  save_every: 1  # epochs
+  checkpoint_dir: "checkpoints/cpu"
+
+data:
+  trace_file: "data/cpu_traces.pt"
+  val_split: 0.1
+  num_workers: 4
+  
+  # Trace generation settings (if regenerating)
+  generation:
+    total_cycles: 50_000_000
+    programs_per_batch: 1000
+    max_cycles_per_program: 100
+    seed: 42
+
+evaluation:
+  batch_size: 1024
+  
+  # Test programs for functional verification
+  test_programs:
+    - name: "load_store"
+      code: [0xA9, 0x42, 0xAA, 0xA8, 0x00]
+      expected:
+        A: 0x42
+        X: 0x42
+        Y: 0x42
+    
+    - name: "increment"
+      code: [0xA2, 0x00, 0xE8, 0xE8, 0xE8, 0x00]
+      expected:
+        X: 0x03
+    
+    - name: "flags"
+      code: [0x38, 0x18, 0x38, 0x00]  # SEC, CLC, SEC
+      expected:
+        P: 0x01  # Carry set
+
+logging:
+  level: "INFO"
+  log_every: 100  # steps
+  tensorboard: true
