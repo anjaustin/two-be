@@ -96,11 +96,12 @@ def pack_weights(weights: torch.Tensor) -> torch.Tensor:
     lib = _load_library()
     
     rows, cols = weights.shape
-    weights_int8 = weights.to(torch.int8).contiguous()
-    packed = torch.zeros((rows, cols // 4), dtype=torch.uint8)
+    weights_f32 = weights.to(torch.float32).contiguous()
+    packed_cols = (cols + 3) // 4
+    packed = torch.zeros((rows, packed_cols), dtype=torch.uint8)
     
     lib.pack_weights(
-        weights_int8.data_ptr(),
+        weights_f32.data_ptr(),
         packed.data_ptr(),
         rows,
         cols
@@ -163,16 +164,19 @@ def bitswitch_forward(
     x = x.contiguous()
     output = torch.zeros((batch, out_features), dtype=torch.float32)
     
+    # Convert gate to int8 mask
+    gate_mask = gate.to(torch.int8).contiguous()
+    
     lib.bitswitch_forward(
         x.data_ptr(),
         packed_weights.data_ptr(),
         scales.data_ptr(),
+        gate_mask.data_ptr(),
         output.data_ptr(),
         batch,
         in_features,
         out_features,
-        num_tiles,
-        gate.data_ptr()
+        num_tiles
     )
     
     return output

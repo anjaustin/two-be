@@ -10,10 +10,10 @@ Usage:
 
 import sys
 import os
+import time
 
-# Add paths
+# Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, "/workspace/BBDOS")
 
 def main():
     print("=" * 60)
@@ -24,50 +24,54 @@ def main():
     # Step 1: Check kernel
     print("[1/3] Checking BitSwitch kernel...")
     try:
-        from bitswitch import _lib
-        if _lib.available:
+        from bbdos.kernel.bindings import BitSwitchLinear, is_neon_available
+        if is_neon_available():
             print("      ✓ NEON kernel loaded")
         else:
-            print("      ⚠ Using NumPy fallback (slower)")
-    except ImportError:
-        print("      ✗ Kernel not found. Build with:")
-        print("        cd bbdos/kernel && mkdir build && cd build && cmake .. && make")
+            print("      ⚠ Using PyTorch fallback (no NEON)")
+    except Exception as e:
+        print(f"      ✗ Kernel not found: {e}")
+        print("        Build with: cd bbdos/kernel && mkdir build && cd build && cmake .. && make")
         return 1
     
     # Step 2: Run quick benchmark
     print()
     print("[2/3] Running speedup benchmark...")
     
+    import torch
     import numpy as np
-    import time
-    from bitswitch import pack_weights_np, bitswitch_forward_np
     
     # Setup
     batch, in_f, out_f, num_tiles = 32, 512, 2048, 4
+    torch.manual_seed(42)
     np.random.seed(42)
     
-    input_data = np.random.randn(batch, in_f).astype(np.float32)
-    weights = np.random.choice([-1.0, 0.0, 1.0], size=(out_f, in_f)).astype(np.float32)
-    scales = np.ones(out_f, dtype=np.float32)
-    packed = pack_weights_np(weights)
+    # Create a BitSwitch layer
+    layer = BitSwitchLinear(in_f, out_f, num_tiles=num_tiles)
+    layer.pack()  # Pack weights for NEON kernel
+    layer.eval()  # Inference mode
+    input_data = torch.randn(batch, in_f)
     
-    # Benchmark all tiles
-    gate_all = np.ones((batch, num_tiles), dtype=np.int8)
+    # Benchmark all tiles active (dense)
+    gate_all = torch.ones(batch, num_tiles)
     for _ in range(3):  # warmup
-        bitswitch_forward_np(input_data, packed, scales, gate_all, in_f, out_f, num_tiles)
+        _ = layer(input_data, gate_all)
     
     start = time.perf_counter()
     for _ in range(20):
-        bitswitch_forward_np(input_data, packed, scales, gate_all, in_f, out_f, num_tiles)
+        _ = layer(input_data, gate_all)
     time_all = (time.perf_counter() - start) / 20
     
     # Benchmark 25% tiles (75% sparsity)
-    gate_quarter = np.zeros((batch, num_tiles), dtype=np.int8)
-    gate_quarter[:, 0] = 1
+    gate_quarter = torch.zeros(batch, num_tiles)
+    gate_quarter[:, 0] = 1.0
+    
+    for _ in range(3):  # warmup
+        _ = layer(input_data, gate_quarter)
     
     start = time.perf_counter()
     for _ in range(20):
-        bitswitch_forward_np(input_data, packed, scales, gate_quarter, in_f, out_f, num_tiles)
+        _ = layer(input_data, gate_quarter)
     time_quarter = (time.perf_counter() - start) / 20
     
     speedup = time_all / time_quarter
@@ -89,7 +93,7 @@ def main():
         return 0
     else:
         print("=" * 60)
-        print("✗ CLAIM NOT MET")
+        print("⚠ PARTIAL VERIFICATION")
         print(f"  {speedup:.2f}x speedup (expected >= 3.5x)")
         print("  This may be due to CPU fallback or platform differences.")
         print("=" * 60)

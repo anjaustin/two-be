@@ -89,7 +89,7 @@ static inline float dot_packed(
 #endif
 }
 
-extern "C" void bitswitch_linear_forward(
+extern "C" void bitswitch_forward(
     const float* input,
     const uint8_t* packed_w,
     const float* scales,
