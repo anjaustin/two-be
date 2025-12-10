@@ -12,7 +12,7 @@
 
 ## Abstract
 
-BBDOS (BitSwitch) is a 2-bit conditional ternary neural architecture that learns to allocate computation proportionally to semantic entropy. Unlike masked sparsity approaches that execute full dense operations and zero unwanted activations, BBDOS **physically skips inactive computation** through dynamic tile-based gating, achieving linear speedup that scales directly with sparsity level.
+BBDOS (powered by TriX) is a 2-bit conditional ternary neural architecture that learns to allocate computation proportionally to semantic entropy. Unlike masked sparsity approaches that execute full dense operations and zero unwanted activations, BBDOS **physically skips inactive computation** through dynamic tile-based gating, achieving linear speedup that scales directly with sparsity level.
 
 The architecture combines:
 - **Ternary weights** {-1, 0, +1} encoded in 2 bits per weight
@@ -26,9 +26,9 @@ The 2-bit encoding reserves 25% of the bit space (the **"Possibility State"**) f
 
 | Experiment | Metric | Value |
 |------------|--------|-------|
-| BitSwitch Kernel | Memory compression vs FP32 | **16x** |
-| BitSwitch Kernel | Speedup @ 75% sparsity | **4.00x** |
-| BitSwitch Kernel | Numerical accuracy vs PyTorch | **0.000069** max error |
+| TriX Kernel | Memory compression vs FP32 | **16x** |
+| TriX Kernel | Speedup @ 75% sparsity | **4.00x** |
+| TriX Kernel | Numerical accuracy vs PyTorch | **0.000069** max error |
 | Neural 6502 | Full-state accuracy | **66.4%** |
 | Neural 6502 | Per-register average | **~91%** |
 | Neural 6502 | Stack pointer accuracy | **99.9%** |
@@ -80,7 +80,7 @@ Input → [Tile Gating Network] → Active Tile Selection
 
 The **16x compression** applies to weight storage specifically:
 
-| Component | FP32 Baseline | BitSwitch | Compression |
+| Component | FP32 Baseline | TriX | Compression |
 |-----------|---------------|-----------|-------------|
 | Weights | 32 bits/weight | 2 bits/weight | **16x** |
 | Scales | - | 32 bits/output | overhead |
@@ -150,7 +150,7 @@ python scripts/evaluate_cpu.py --checkpoint weights/neural_cpu_best.pt
 ```
 two-be/
 ├── bbdos/                  # Main package
-│   ├── kernel/             # BitSwitch NEON/CUDA kernel
+│   ├── kernel/             # TriX NEON/CUDA kernel
 │   ├── cpu/                # Neural 6502 model
 │   └── lm/                 # NanoLPU language model
 ├── configs/                # YAML configs (seeded for reproducibility)

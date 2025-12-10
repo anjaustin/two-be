@@ -10,7 +10,7 @@ FROM nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
 # Metadata
 LABEL maintainer="Tripp & Double-D"
 LABEL version="1.0.0"
-LABEL description="BBDOS: BitSwitch-Based Distributed Operating System"
+LABEL description="BBDOS: 2-Bit Distributed Operating System powered by TriX"
 
 # Set working directory
 WORKDIR /app
@@ -28,7 +28,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source code
 COPY . .
 
-# Build the BitSwitch kernel
+# Build the TriX kernel
 RUN cd bbdos/kernel && \
     mkdir -p build && \
     cd build && \

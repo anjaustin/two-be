@@ -22,9 +22,9 @@ def main():
     print()
     
     # Step 1: Check kernel
-    print("[1/3] Checking BitSwitch kernel...")
+    print("[1/3] Checking TriX kernel...")
     try:
-        from bbdos.kernel.bindings import BitSwitchLinear, is_neon_available
+        from bbdos.kernel.bindings import TriXLinear, is_neon_available
         if is_neon_available():
             print("      ✓ NEON kernel loaded")
         else:
@@ -46,8 +46,8 @@ def main():
     torch.manual_seed(42)
     np.random.seed(42)
     
-    # Create a BitSwitch layer
-    layer = BitSwitchLinear(in_f, out_f, num_tiles=num_tiles)
+    # Create a TriX layer
+    layer = TriXLinear(in_f, out_f, num_tiles=num_tiles)
     layer.pack()  # Pack weights for NEON kernel
     layer.eval()  # Inference mode
     input_data = torch.randn(batch, in_f)

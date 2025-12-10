@@ -2,7 +2,7 @@
 """
 BBDOS Language Model Training Script
 
-Trains the NanoLPU model with BitSwitch sparse layers.
+Trains the NanoLPU model with TriX sparse layers.
 
 Usage:
     python train_lm.py --config configs/bbdos_lm.yaml
@@ -181,7 +181,7 @@ def main():
         num_tiles=cfg['model']['num_tiles'],
         block_size=cfg['model']['block_size'],
         dropout=cfg['model'].get('dropout', 0.1),
-        noise_scale=cfg['model']['bitswitch'].get('noise_injection', 1.0),
+        noise_scale=cfg['model']['trix'].get('noise_injection', 1.0),
     )
     model = NanoLPU(model_cfg).to(device)
     print(f"Model parameters: {model.num_parameters / 1e6:.1f}M")

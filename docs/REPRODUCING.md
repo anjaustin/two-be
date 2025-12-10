@@ -35,7 +35,7 @@ python -m pytest tests/test_kernel.py -v
 
 ## Full Reproduction (From Scratch)
 
-### Step 1: Build the BitSwitch Kernel
+### Step 1: Build the TriX Kernel
 
 ```bash
 cd bbdos/kernel
@@ -51,7 +51,7 @@ Expected output:
 -- Configuring done
 -- Generating done
 -- Build files have been written to: .../build
-[100%] Built target bitswitch
+[100%] Built target trix
 ```
 
 ### Step 2: Verify Kernel Correctness
@@ -72,7 +72,7 @@ python scripts/benchmark.py --output results/speedup.csv
 Expected output:
 ```
 ============================================================
-BitSwitch Kernel Benchmark Results
+TriX Kernel Benchmark Results
 ============================================================
 Sparsity      Tiles    Time (ms)     Speedup   
 ------------------------------------------------------------
@@ -173,7 +173,7 @@ If you reproduce these results, please cite:
 ```bibtex
 @software{bbdos2024,
   author = {Tripp and Double-D and Team},
-  title = {BBDOS: BitSwitch-Based Distributed Operating System},
+  title = {BBDOS: TriX-Based Distributed Operating System},
   year = {2024},
   url = {https://github.com/[repo]}
 }

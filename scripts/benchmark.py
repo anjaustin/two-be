@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-BitSwitch Kernel Benchmark
+TriX Kernel Benchmark
 
 Measures speedup at various sparsity levels and outputs CSV data.
 """
@@ -15,7 +15,7 @@ import numpy as np
 
 # Add paths for imports
 sys.path.insert(0, "/workspace/BBDOS")
-from bitswitch import pack_weights_np, bitswitch_forward_np, _lib
+from trix import pack_weights_np, trix_forward_np, _lib
 
 
 def benchmark_sparsity(
@@ -51,13 +51,13 @@ def benchmark_sparsity(
         
         # Warmup
         for _ in range(warmup_iters):
-            bitswitch_forward_np(input_data, packed, scales, gate_mask, in_features, out_features, num_tiles)
+            trix_forward_np(input_data, packed, scales, gate_mask, in_features, out_features, num_tiles)
         
         # Benchmark
         times = []
         for _ in range(bench_iters):
             start = time.perf_counter()
-            bitswitch_forward_np(input_data, packed, scales, gate_mask, in_features, out_features, num_tiles)
+            trix_forward_np(input_data, packed, scales, gate_mask, in_features, out_features, num_tiles)
             times.append(time.perf_counter() - start)
         
         avg_time = np.mean(times) * 1000  # Convert to ms
@@ -86,7 +86,7 @@ def compute_speedups(results):
 def print_results(results):
     """Print formatted benchmark results."""
     print("\n" + "=" * 60)
-    print("BitSwitch Kernel Benchmark Results")
+    print("TriX Kernel Benchmark Results")
     print("=" * 60)
     print(f"{'Sparsity':<12} {'Tiles':<8} {'Time (ms)':<12} {'Speedup':<10}")
     print("-" * 60)
@@ -107,7 +107,7 @@ def save_csv(results, filename):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="BitSwitch Kernel Benchmark")
+    parser = argparse.ArgumentParser(description="TriX Kernel Benchmark")
     parser.add_argument('--batch', type=int, default=32, help='Batch size')
     parser.add_argument('--in-features', type=int, default=512, help='Input features')
     parser.add_argument('--out-features', type=int, default=2048, help='Output features')

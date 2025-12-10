@@ -261,7 +261,7 @@ class TestOpcodeAccuracy:
 
 
 class TestGateRouting:
-    """Tests for BitSwitch gate routing behavior."""
+    """Tests for TriX gate routing behavior."""
     
     def test_gates_are_one_hot(self):
         """Gate outputs should be approximately one-hot."""

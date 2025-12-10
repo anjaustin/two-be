@@ -1,5 +1,5 @@
 # BBDOS Language Model Configuration
-# NanoLPU with BitSwitch sparse layers
+# NanoLPU with TriX sparse layers
 
 model:
   name: "NanoLPU"
@@ -11,8 +11,8 @@ model:
   block_size: 512
   dropout: 0.1
   
-  # BitSwitch settings
-  bitswitch:
+  # TriX settings
+  trix:
     enabled: true
     quantize: true  # 2-bit weights
     noise_injection: 1.0  # Training noise for load balancing

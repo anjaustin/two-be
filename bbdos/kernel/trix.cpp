@@ -1,4 +1,4 @@
-#include "bitswitch.h"
+#include "trix.h"
 #include <cstring>
 #include <cmath>
 
@@ -89,7 +89,7 @@ static inline float dot_packed(
 #endif
 }
 
-extern "C" void bitswitch_forward(
+extern "C" void trix_forward(
     const float* input,
     const uint8_t* packed_w,
     const float* scales,

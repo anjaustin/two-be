@@ -1,22 +1,22 @@
 """
-BitSwitch Kernel
+TriX Kernel
 
 Sparse 2-bit matrix multiplication with tile-based routing.
 Implements ARM NEON acceleration for ternary weights.
 """
 
 from .bindings import (
-    BitSwitchLinear,
+    TriXLinear,
     pack_weights,
     unpack_weights,
-    bitswitch_forward,
+    trix_forward,
     is_neon_available,
 )
 
 __all__ = [
-    "BitSwitchLinear",
+    "TriXLinear",
     "pack_weights", 
     "unpack_weights",
-    "bitswitch_forward",
+    "trix_forward",
     "is_neon_available",
 ]

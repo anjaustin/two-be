@@ -1,5 +1,5 @@
 """
-BitSwitch Python Bindings
+TriX Python Bindings
 
 Clean interface to the C++ NEON kernel.
 """
@@ -16,11 +16,10 @@ _LIB_PATH = None
 _LIB = None
 
 def _find_library() -> Optional[Path]:
-    """Search for libbitswitch.so in common locations."""
+    """Search for libtrix.so in common locations."""
     search_paths = [
-        Path(__file__).parent / "build" / "libbitswitch.so",
-        Path(__file__).parent / "libbitswitch.so",
-        Path("/workspace/BBDOS/build/libbitswitch.so"),  # Legacy location
+        Path(__file__).parent / "build" / "libtrix.so",
+        Path(__file__).parent / "libtrix.so",
     ]
     
     for path in search_paths:
@@ -29,7 +28,7 @@ def _find_library() -> Optional[Path]:
     return None
 
 def _load_library():
-    """Load the BitSwitch C library."""
+    """Load the TriX C library."""
     global _LIB_PATH, _LIB
     
     if _LIB is not None:
@@ -38,7 +37,7 @@ def _load_library():
     _LIB_PATH = _find_library()
     if _LIB_PATH is None:
         raise RuntimeError(
-            "libbitswitch.so not found. Build with: "
+            "libtrix.so not found. Build with: "
             "cd bbdos/kernel && mkdir build && cd build && cmake .. && make"
         )
     
@@ -59,7 +58,7 @@ def _load_library():
         ctypes.c_int,     # cols
     ]
     
-    _LIB.bitswitch_forward.argtypes = [
+    _LIB.trix_forward.argtypes = [
         ctypes.c_void_p,  # input
         ctypes.c_void_p,  # packed weights
         ctypes.c_void_p,  # scales
@@ -136,7 +135,7 @@ def unpack_weights(packed: torch.Tensor, rows: int, cols: int) -> torch.Tensor:
     return output
 
 
-def bitswitch_forward(
+def trix_forward(
     x: torch.Tensor,
     packed_weights: torch.Tensor,
     scales: torch.Tensor,
@@ -167,7 +166,7 @@ def bitswitch_forward(
     # Convert gate to int8 mask
     gate_mask = gate.to(torch.int8).contiguous()
     
-    lib.bitswitch_forward(
+    lib.trix_forward(
         x.data_ptr(),
         packed_weights.data_ptr(),
         scales.data_ptr(),
@@ -182,9 +181,9 @@ def bitswitch_forward(
     return output
 
 
-class BitSwitchLinear(nn.Module):
+class TriXLinear(nn.Module):
     """
-    Linear layer with BitSwitch sparse 2-bit weights.
+    Linear layer with TriX sparse 2-bit weights.
     
     During training, uses full-precision PyTorch operations.
     During inference, uses packed 2-bit NEON kernel (4x faster at 75% sparsity).
@@ -255,7 +254,7 @@ class BitSwitchLinear(nn.Module):
         """
         if self._packed and not self.training:
             # Use NEON kernel
-            return bitswitch_forward(
+            return trix_forward(
                 x, self.packed_weight, self.scales,
                 gate, self.out_features, self.num_tiles
             )

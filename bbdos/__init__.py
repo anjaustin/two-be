@@ -1,5 +1,5 @@
 """
-BBDOS: BitSwitch-Based Distributed Operating System
+BBDOS: 2-Bit Distributed Operating System
 
 Sparse 2-bit neural computation for efficient inference.
 """

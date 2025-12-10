@@ -8,7 +8,7 @@ Configuration:
   Iterations: 50
 
 ============================================================
-BitSwitch Kernel Benchmark Results
+TriX Kernel Benchmark Results
 ============================================================
 Sparsity     Tiles    Time (ms)    Speedup   
 ------------------------------------------------------------

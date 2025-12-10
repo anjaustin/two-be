@@ -1,7 +1,7 @@
 """
 NanoLPU Language Model
 
-A transformer with BitSwitch sparse layers for 2-bit inference.
+A transformer with TriX sparse layers for 2-bit inference.
 """
 
 import torch
@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from dataclasses import dataclass
 from typing import Optional, Tuple, List
 
-from ..kernel import BitSwitchLinear
+from ..kernel import TriXLinear
 
 
 @dataclass
@@ -40,12 +40,12 @@ class Top1Gate(torch.autograd.Function):
 
 
 class GatedFFN(nn.Module):
-    """Feed-forward network with BitSwitch sparse routing."""
+    """Feed-forward network with TriX sparse routing."""
     
     def __init__(self, d_model: int, num_tiles: int, noise_scale: float = 1.0):
         super().__init__()
-        self.up_proj = BitSwitchLinear(d_model, d_model * 4, num_tiles)
-        self.down_proj = BitSwitchLinear(d_model * 4, d_model, num_tiles)
+        self.up_proj = TriXLinear(d_model, d_model * 4, num_tiles)
+        self.down_proj = TriXLinear(d_model * 4, d_model, num_tiles)
         self.gate_proj = nn.Linear(d_model, num_tiles)
         self.noise_scale = noise_scale
     
@@ -105,7 +105,7 @@ class NanoLPU(nn.Module):
     """
     NanoLPU Language Model
     
-    A transformer with BitSwitch sparse layers for efficient 2-bit inference.
+    A transformer with TriX sparse layers for efficient 2-bit inference.
     
     Args:
         config: Model configuration (or uses defaults if None)
@@ -142,7 +142,7 @@ class NanoLPU(nn.Module):
                     nn.init.zeros_(module.bias)
             elif isinstance(module, nn.Embedding):
                 nn.init.normal_(module.weight, std=0.02)
-            elif isinstance(module, BitSwitchLinear):
+            elif isinstance(module, TriXLinear):
                 nn.init.normal_(module.weight, std=0.02)
     
     def forward(

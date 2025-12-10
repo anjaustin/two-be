@@ -2,7 +2,7 @@
 Neural 6502 Model Architecture
 
 A transformer-based model that predicts CPU register state transitions.
-Uses BitSwitch sparse layers for efficient inference.
+Uses TriX sparse layers for efficient inference.
 """
 
 import torch
@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from dataclasses import dataclass
 from typing import Dict, Tuple, Optional
 
-from ..kernel import BitSwitchLinear
+from ..kernel import TriXLinear
 
 
 @dataclass
@@ -49,12 +49,12 @@ class Top1Gate(torch.autograd.Function):
 
 
 class GatedFFN(nn.Module):
-    """Feed-forward network with BitSwitch sparse routing."""
+    """Feed-forward network with TriX sparse routing."""
     
     def __init__(self, d_model: int, num_tiles: int, dropout: float = 0.1):
         super().__init__()
-        self.up_proj = BitSwitchLinear(d_model, d_model * 4, num_tiles)
-        self.down_proj = BitSwitchLinear(d_model * 4, d_model, num_tiles)
+        self.up_proj = TriXLinear(d_model, d_model * 4, num_tiles)
+        self.down_proj = TriXLinear(d_model * 4, d_model, num_tiles)
         self.gate_proj = nn.Linear(d_model, num_tiles)
         self.dropout = nn.Dropout(dropout)
     

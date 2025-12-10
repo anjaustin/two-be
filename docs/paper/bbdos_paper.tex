@@ -41,7 +41,7 @@ Independent Research}
 \maketitle
 
 \begin{abstract}
-We present BBDOS (BitSwitch), a 2-bit conditional ternary neural architecture that learns to allocate computation proportionally to semantic entropy. Unlike masked sparsity approaches that execute full dense operations and zero unwanted activations, BBDOS \textbf{physically skips inactive computation} through dynamic tile-based gating, achieving linear speedup that scales directly with sparsity level. The architecture combines ternary weights $\{-1, 0, +1\}$ encoded in 2 bits, learned tile activation patterns, 16$\times$ memory compression versus FP32, and 4.00$\times$ inference speedup at 75\% sparsity. We validate the approach on two tasks: a Neural 6502 CPU emulator achieving 66.4\% full-state accuracy (91\% per-register average), and a 38.2M parameter language model reaching 0.43 loss on TinyStories. The Neural 6502 experiments reveal a ``Savant CPU'' phenomenon where neural networks master control flow and bitwise operations (96-99\%) but fail catastrophically on carry-based arithmetic (3.1\%), suggesting fundamental limitations in neural program synthesis.
+We present BBDOS (TriX), a 2-bit conditional ternary neural architecture that learns to allocate computation proportionally to semantic entropy. Unlike masked sparsity approaches that execute full dense operations and zero unwanted activations, BBDOS \textbf{physically skips inactive computation} through dynamic tile-based gating, achieving linear speedup that scales directly with sparsity level. The architecture combines ternary weights $\{-1, 0, +1\}$ encoded in 2 bits, learned tile activation patterns, 16$\times$ memory compression versus FP32, and 4.00$\times$ inference speedup at 75\% sparsity. We validate the approach on two tasks: a Neural 6502 CPU emulator achieving 66.4\% full-state accuracy (91\% per-register average), and a 38.2M parameter language model reaching 0.43 loss on TinyStories. The Neural 6502 experiments reveal a ``Savant CPU'' phenomenon where neural networks master control flow and bitwise operations (96-99\%) but fail catastrophically on carry-based arithmetic (3.1\%), suggesting fundamental limitations in neural program synthesis.
 \end{abstract}
 
 \section{Introduction}
@@ -87,12 +87,12 @@ Binary & Value & Operation \\
 
 The ``Possibility State'' (\texttt{11}) reserves 25\% of the encoding space for future extensions such as activation-dependent weights or learned skip patterns.
 
-\subsection{BitSwitch Forward Pass}
+\subsection{TriX Forward Pass}
 
 The forward pass processes tiles conditionally:
 
 \begin{algorithm}
-\caption{BitSwitch Forward Pass}
+\caption{TriX Forward Pass}
 \begin{algorithmic}[1]
 \Require Input $\mathbf{x}$, packed weights $\mathbf{W}_{\text{packed}}$, scales $\mathbf{s}$, gate mask $\mathbf{g}$
 \Ensure Output $\mathbf{y}$
@@ -127,9 +127,9 @@ During training, we use the straight-through estimator (STE) to allow gradient f
 
 \section{Experiments}
 
-\subsection{BitSwitch Kernel Benchmarks}
+\subsection{TriX Kernel Benchmarks}
 
-We implemented the BitSwitch kernel in C++ with ARM NEON vectorization for the Jetson AGX Thor platform.
+We implemented the TriX kernel in C++ with ARM NEON vectorization for the Jetson AGX Thor platform.
 
 \begin{table}[h]
 \centering
@@ -143,7 +143,7 @@ Sparsity & Active Tiles & Time (ms) & Speedup \\
 75\% & 1/4 & 35.15 & \textbf{4.00$\times$} \\
 \bottomrule
 \end{tabular}
-\caption{BitSwitch kernel speedup with tile sparsity (ARM NEON)}
+\caption{TriX kernel speedup with tile sparsity (ARM NEON)}
 \label{tab:speedup}
 \end{table}
 
@@ -161,7 +161,7 @@ We trained a transformer model to predict 6502 CPU state transitions from opcode
 \subsubsection{Model Architecture}
 \begin{itemize}
     \item Parameters: 2.42M
-    \item Layers: 6 transformer blocks with BitSwitch FFN
+    \item Layers: 6 transformer blocks with TriX FFN
     \item Input: 9 tokens (A, X, Y, SP, P, PCH, PCL, Op, Val)
     \item Output: 7 register predictions (A, X, Y, SP, P, PCH, PCL)
 \end{itemize}
@@ -239,7 +239,7 @@ The model exhibits ``savant-like'' behavior: exceptional performance on pattern-
 
 \subsection{BBDOS Language Model}
 
-We trained a 38.2M parameter language model on TinyStories using BitSwitch sparse layers.
+We trained a 38.2M parameter language model on TinyStories using TriX sparse layers.
 
 \begin{table}[h]
 \centering
@@ -248,7 +248,7 @@ We trained a 38.2M parameter language model on TinyStories using BitSwitch spars
 Metric & Value \\
 \midrule
 Parameters & 38.2M \\
-Architecture & 12-layer transformer with BitSwitch FFN \\
+Architecture & 12-layer transformer with TriX FFN \\
 Training steps & 15,000 \\
 Final loss & \textbf{0.43} \\
 \bottomrule

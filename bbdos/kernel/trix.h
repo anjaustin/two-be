@@ -1,5 +1,5 @@
-#ifndef BITSWITCH_H
-#define BITSWITCH_H
+#ifndef TRIX_H
+#define TRIX_H
 
 #include <stdint.h>
 
@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-void bitswitch_linear_forward(
+void trix_forward(
     const float* input,          // [batch_size, in_features]
     const uint8_t* packed_w,     // [num_tiles, out_per_tile, packed_in_dim]
     const float* scales,         // [num_tiles, out_per_tile]

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(bitswitch LANGUAGES CXX)
+project(trix LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -16,12 +16,12 @@ else()
     set(ARCH_FLAGS -mavx2 -mfma)
 endif()
 
-add_library(bitswitch SHARED bitswitch.cpp)
-target_compile_options(bitswitch PRIVATE 
+add_library(trix SHARED trix.cpp)
+target_compile_options(trix PRIVATE 
     ${ARCH_FLAGS}
     -ffast-math 
     -funroll-loops
 )
 
-install(TARGETS bitswitch LIBRARY DESTINATION lib)
-install(FILES bitswitch.h DESTINATION include)
+install(TARGETS trix LIBRARY DESTINATION lib)
+install(FILES trix.h DESTINATION include)

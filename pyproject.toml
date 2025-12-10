@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bbdos"
 version = "1.0.0"
-description = "BitSwitch-Based Distributed Operating System - Sparse 2-bit neural computation"
+description = "2-Bit Distributed Operating System - Sparse 2-bit neural computation powered by TriX"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [

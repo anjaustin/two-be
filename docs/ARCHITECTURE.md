@@ -15,18 +15,18 @@ BBDOS consists of three main components:
 │  └── NanoLPU Language Model                                     │
 ├─────────────────────────────────────────────────────────────────┤
 │  Core Library                                                   │
-│  └── BitSwitch Sparse Layers (PyTorch)                          │
+│  └── TriX Sparse Layers (PyTorch)                          │
 ├─────────────────────────────────────────────────────────────────┤
 │  Kernel                                                         │
 │  └── 2-bit NEON Matrix Multiplication (C++)                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## 1. BitSwitch Kernel
+## 1. TriX Kernel
 
 ### Weight Representation
 
-Standard neural networks use 32-bit floating point weights. BitSwitch uses **2-bit ternary weights**:
+Standard neural networks use 32-bit floating point weights. TriX uses **2-bit ternary weights**:
 
 | Value | 2-bit Code | Meaning |
 |-------|------------|---------|
@@ -43,7 +43,7 @@ This gives **4x memory compression** compared to int8 and **16x** compared to fl
 
 ### Tile-Based Routing
 
-Instead of computing the full matrix multiplication, BitSwitch divides outputs into **tiles**:
+Instead of computing the full matrix multiplication, TriX divides outputs into **tiles**:
 
 ```
 Output Vector (2048 dims)
@@ -106,7 +106,7 @@ Input Embeddings (9 × 32-dim each)
         │
         ▼
 ┌───────────────────────────────┐
-│  BitSwitch Functional Unit    │ × 6 layers
+│  TriX Functional Unit    │ × 6 layers
 │  ├── Gate Network (256 → 4)   │
 │  ├── Up Project (256 → 512)   │
 │  └── Down Project (512 → 256) │
@@ -167,7 +167,7 @@ Token Embedding + Position Embedding
 ┌───────────────────────────────────┐
 │  Transformer Block                │ × 12 layers
 │  ├── Multi-Head Attention (8 heads)
-│  └── BitSwitch FFN                │
+│  └── TriX FFN                │
 │      ├── Gate (512 → 4)           │
 │      ├── Up (512 → 2048)          │
 │      └── Down (2048 → 512)        │
@@ -236,7 +236,7 @@ a-z, A-Z, 0-9, space, punctuation, newline
 
 ### Memory Savings
 
-| Component | Float32 | BitSwitch | Savings |
+| Component | Float32 | TriX | Savings |
 |-----------|---------|-----------|---------|
 | Weight storage | 4 bytes | 0.25 bytes | 16x |
 | FFN layer (512→2048) | 4 MB | 256 KB | 16x |
@@ -258,8 +258,8 @@ The slight super-linear speedup at high sparsity is due to improved cache locali
 ```
 bbdos/
 ├── kernel/
-│   ├── bitswitch.h      # C API declarations
-│   ├── bitswitch.cpp    # NEON implementation
+│   ├── trix.h      # C API declarations
+│   ├── trix.cpp    # NEON implementation
 │   ├── bindings.py      # Python ctypes wrapper
 │   └── CMakeLists.txt   # Build configuration
 ├── cpu/
