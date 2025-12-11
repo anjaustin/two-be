@@ -2,6 +2,7 @@
 TriX Python Bindings
 
 Clean interface to the C++ NEON kernel.
+2-bit ternary weights with Straight-Through Estimator for training.
 """
 
 import os
@@ -10,6 +11,34 @@ import torch
 import torch.nn as nn
 from pathlib import Path
 from typing import Optional, Tuple
+
+
+class STESign(torch.autograd.Function):
+    """
+    Straight-Through Estimator for sign function.
+    
+    Forward: hard sign → {-1, 0, +1}
+    Backward: pass gradient through unchanged
+    
+    This allows training ternary networks with gradient descent.
+    """
+    
+    @staticmethod
+    def forward(ctx, x: torch.Tensor, threshold: float = 0.0) -> torch.Tensor:
+        ctx.save_for_backward(x)
+        # Ternary quantization: values near zero stay zero
+        out = torch.sign(x)
+        if threshold > 0:
+            out[x.abs() < threshold] = 0
+        return out
+    
+    @staticmethod
+    def backward(ctx, grad_output: torch.Tensor) -> tuple:
+        x, = ctx.saved_tensors
+        # STE: pass gradient through, clipped to [-1, 1] range
+        grad_input = grad_output.clone()
+        grad_input[x.abs() > 1] = 0  # Clip gradient outside [-1, 1]
+        return grad_input, None
 
 # Locate the shared library
 _LIB_PATH = None
@@ -224,11 +253,9 @@ class TriXLinear(nn.Module):
         self._init_weights()
     
     def _init_weights(self):
-        """Initialize weights to ternary values."""
+        """Initialize weights (continuous, quantized during forward via STE)."""
         nn.init.kaiming_uniform_(self.weight)
-        # Quantize to ternary
-        with torch.no_grad():
-            self.weight.data = torch.sign(self.weight.data)
+        # Keep continuous for training - STE quantizes during forward pass
     
     def pack(self):
         """Pack weights for inference."""
@@ -259,9 +286,9 @@ class TriXLinear(nn.Module):
                 gate, self.out_features, self.num_tiles
             )
         else:
-            # PyTorch fallback
-            # Apply ternary quantization
-            w = torch.sign(self.weight)
+            # PyTorch training with STE
+            # Quantize to ternary with gradient flow via Straight-Through Estimator
+            w = STESign.apply(self.weight)
             out = torch.mm(x, w.t()) * self.scales
             
             if self.bias is not None:

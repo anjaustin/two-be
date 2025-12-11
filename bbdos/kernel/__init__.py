@@ -7,6 +7,7 @@ Implements ARM NEON acceleration for ternary weights.
 
 from .bindings import (
     TriXLinear,
+    STESign,
     pack_weights,
     unpack_weights,
     trix_forward,
@@ -15,6 +16,7 @@ from .bindings import (
 
 __all__ = [
     "TriXLinear",
+    "STESign",
     "pack_weights", 
     "unpack_weights",
     "trix_forward",

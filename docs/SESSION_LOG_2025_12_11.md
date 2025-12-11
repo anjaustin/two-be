@@ -47,3 +47,32 @@ Model learns to work with constrained weights.
 1. Push accuracy higher (target: 95%+)
 2. Test with actual ternary weights at inference
 3. Validate NVF integration
+
+---
+
+## Critical Fix: TriX STE
+
+### Problem Found
+`torch.sign()` in TriXLinear had zero gradient. Weights never updated.
+
+### Fix Applied
+Modified `bbdos/kernel/bindings.py`:
+
+1. Added `STESign` class - Straight-Through Estimator
+2. Changed `_init_weights()` to keep continuous weights
+3. Changed `forward()` to use `STESign.apply()` instead of `torch.sign()`
+
+### Results After Fix
+
+```
+Weight gradient: 2.398747 (was 0.000000)
+[✓] Gradients flow to weights
+
+Training progress:
+  Epoch 100: acc(±5)=29.6%
+  Epoch 500: acc(±5)=77.6%
+
+Final (Noise=0.15): Exact=13.3%, ±5=77.9%
+```
+
+Gradients flow. TriX learns.
