@@ -15,30 +15,32 @@ from typing import Optional, Tuple
 
 class STESign(torch.autograd.Function):
     """
-    Straight-Through Estimator for sign function.
+    Straight-Through Estimator for ternary quantization.
     
-    Forward: hard sign → {-1, 0, +1}
+    Forward: quantize to {-1, 0, +1} with threshold 0.5
+             (matches the C++ kernel: w > 0.5 → +1, w < -0.5 → -1, else 0)
     Backward: pass gradient through unchanged
     
     This allows training ternary networks with gradient descent.
     """
     
     @staticmethod
-    def forward(ctx, x: torch.Tensor, threshold: float = 0.0) -> torch.Tensor:
+    def forward(ctx, x: torch.Tensor) -> torch.Tensor:
         ctx.save_for_backward(x)
-        # Ternary quantization: values near zero stay zero
-        out = torch.sign(x)
-        if threshold > 0:
-            out[x.abs() < threshold] = 0
+        # Ternary quantization matching C++ kernel threshold
+        out = torch.zeros_like(x)
+        out[x > 0.5] = 1.0
+        out[x < -0.5] = -1.0
         return out
     
     @staticmethod
-    def backward(ctx, grad_output: torch.Tensor) -> tuple:
+    def backward(ctx, grad_output: torch.Tensor) -> torch.Tensor:
         x, = ctx.saved_tensors
-        # STE: pass gradient through, clipped to [-1, 1] range
+        # STE: pass gradient through, but clip for stability
         grad_input = grad_output.clone()
-        grad_input[x.abs() > 1] = 0  # Clip gradient outside [-1, 1]
-        return grad_input, None
+        # Zero gradient for weights far outside trainable range
+        grad_input[x.abs() > 1.5] = 0
+        return grad_input
 
 # Locate the shared library
 _LIB_PATH = None
@@ -254,8 +256,9 @@ class TriXLinear(nn.Module):
     
     def _init_weights(self):
         """Initialize weights (continuous, quantized during forward via STE)."""
-        nn.init.kaiming_uniform_(self.weight)
-        # Keep continuous for training - STE quantizes during forward pass
+        # Initialize with values around ±0.7 so they're clearly in ternary bins
+        # (threshold is 0.5, so values > 0.5 → +1, < -0.5 → -1)
+        nn.init.uniform_(self.weight, -0.8, 0.8)
     
     def pack(self):
         """Pack weights for inference."""
