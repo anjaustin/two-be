@@ -90,6 +90,7 @@ typedef enum {
 
 typedef struct {
     char opcode[MAX_OPCODE_LEN];
+    uint64_t data_hash;
     int config;
     CacheStatus status;
     int age;
@@ -131,11 +132,23 @@ static void cache_destroy(NeuralCache* c) {
     free(c);
 }
 
-static int cache_lookup(NeuralCache* c, const char* opcode) {
+static uint64_t hash_data(const void* data, size_t size) {
+    const uint8_t* bytes = (const uint8_t*)data;
+    uint64_t hash = 14695981039346656037ULL;
+    for (size_t i = 0; i < size; i++) {
+        hash ^= bytes[i];
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
+static int cache_lookup(NeuralCache* c, const char* opcode, uint64_t data_hash) {
     pthread_mutex_lock(&c->lock);
     
     for (int i = 0; i < c->cache_size; i++) {
-        if (c->slots[i].opcode[0] && strcmp(c->slots[i].opcode, opcode) == 0) {
+        if (c->slots[i].opcode[0] && 
+            strcmp(c->slots[i].opcode, opcode) == 0 &&
+            c->slots[i].data_hash == data_hash) {
             c->slots[i].hit_count++;
             c->slots[i].last_hit = (double)clock() / CLOCKS_PER_SEC;
             c->hits++;
@@ -149,12 +162,13 @@ static int cache_lookup(NeuralCache* c, const char* opcode) {
     return -1;
 }
 
-static int cache_store(NeuralCache* c, const char* opcode, void* data, size_t size) {
+static int cache_store(NeuralCache* c, const char* opcode, uint64_t data_hash, void* data, size_t size) {
     pthread_mutex_lock(&c->lock);
     
-    // Check if already exists
     for (int i = 0; i < c->cache_size; i++) {
-        if (c->slots[i].opcode[0] && strcmp(c->slots[i].opcode, opcode) == 0) {
+        if (c->slots[i].opcode[0] && 
+            strcmp(c->slots[i].opcode, opcode) == 0 &&
+            c->slots[i].data_hash == data_hash) {
             if (c->slots[i].data) free(c->slots[i].data);
             c->slots[i].data = malloc(size);
             memcpy(c->slots[i].data, data, size);
@@ -164,10 +178,10 @@ static int cache_store(NeuralCache* c, const char* opcode, void* data, size_t si
         }
     }
     
-    // Find empty slot
     for (int i = 0; i < c->cache_size; i++) {
         if (c->slots[i].opcode[0] == 0) {
             strncpy(c->slots[i].opcode, opcode, MAX_OPCODE_LEN - 1);
+            c->slots[i].data_hash = data_hash;
             c->slots[i].data = malloc(size);
             memcpy(c->slots[i].data, data, size);
             c->slots[i].data_size = size;
@@ -178,7 +192,6 @@ static int cache_store(NeuralCache* c, const char* opcode, void* data, size_t si
         }
     }
     
-    // Evict LRU
     int lru_idx = 0;
     double oldest = 1e100;
     for (int i = 0; i < c->cache_size; i++) {
@@ -190,6 +203,7 @@ static int cache_store(NeuralCache* c, const char* opcode, void* data, size_t si
     
     free(c->slots[lru_idx].data);
     strncpy(c->slots[lru_idx].opcode, opcode, MAX_OPCODE_LEN - 1);
+    c->slots[lru_idx].data_hash = data_hash;
     c->slots[lru_idx].data = malloc(size);
     memcpy(c->slots[lru_idx].data, data, size);
     c->slots[lru_idx].data_size = size;
@@ -335,15 +349,19 @@ static int apu_exec(BBDOS_APU* apu, const char* opcode, void** operands, int* sh
         return -1;  // Invalid count
     }
     
-    // Check cache
-    int slot = cache_lookup(apu->cache, opcode);
+    uint64_t data_hash = 0;
+    if (operands && operands[0] && operands[1]) {
+        size_t data_size = count * sizeof(float);
+        data_hash = hash_data(operands[0], data_size);
+        data_hash ^= hash_data(operands[1], data_size);
+    }
+    
+    int slot = cache_lookup(apu->cache, opcode, data_hash);
     if (slot >= 0) {
-        // Cache hit - use cached result
         memcpy(output, apu->cache->slots[slot].data, apu->cache->slots[slot].data_size);
         return 0;
     }
     
-    // Cache miss - compute
     if (strcmp(opcode, "MTFP_ADD") == 0) {
         if (!operands || !operands[0] || !operands[1]) return -1;
         
@@ -362,7 +380,7 @@ static int apu_exec(BBDOS_APU* apu, const char* opcode, void** operands, int* sh
         }
         free(temp);
         
-        cache_store(apu->cache, opcode, output, count * MTFP16_TRITS);
+        cache_store(apu->cache, opcode, data_hash, output, count * MTFP16_TRITS);
         return 0;
     }
     
@@ -384,7 +402,7 @@ static int apu_exec(BBDOS_APU* apu, const char* opcode, void** operands, int* sh
         }
         free(temp);
         
-        cache_store(apu->cache, opcode, output, count * MTFP16_TRITS);
+        cache_store(apu->cache, opcode, data_hash, output, count * MTFP16_TRITS);
         return 0;
     }
     
