@@ -3,6 +3,10 @@ Multi-Trit Floating Point (MTFP)
 
 A ternary floating point format using trits (-1, 0, +1) instead of bits.
 Uses the Dark State (0b11) for exponent expansion.
+
+WARNING: MTFP has significant precision loss compared to float32.
+Do NOT use for financial calculations or any application requiring
+exact decimal representation.
 """
 
 import numpy as np
@@ -11,6 +15,15 @@ from typing import Tuple, Optional
 
 TRITS = np.array([-1, 0, 1])
 TRIT_VALUES = {-1: 0b10, 0: 0b00, 1: 0b01}
+
+MAX_EXPONENT_TRITS = 10
+MAX_MANTISSA_TRITS = 12
+MAX_ITERATIONS = 1000
+
+
+def validate_trit_value(t: int) -> bool:
+    """Validate that a trit value is in acceptable range."""
+    return t in (-1, 0, 1, 2)
 
 
 class MTFP:
@@ -30,13 +43,23 @@ class MTFP:
     def __init__(
         self, n_mantissa_trits: int = 6, n_exponent_trits: int = 5, n_sign_trit: int = 1
     ):
+        if n_mantissa_trits < 1:
+            raise ValueError("n_mantissa_trits must be >= 1")
+        if n_exponent_trits < 1:
+            raise ValueError("n_exponent_trits must be >= 1")
+        if n_sign_trit < 1:
+            raise ValueError("n_sign_trit must be >= 1")
+        if n_mantissa_trits > MAX_MANTISSA_TRITS:
+            raise ValueError(f"n_mantissa_trits must be <= {MAX_MANTISSA_TRITS}")
+        if n_exponent_trits > MAX_EXPONENT_TRITS:
+            raise ValueError(f"n_exponent_trits must be <= {MAX_EXPONENT_TRITS}")
+
         self.n_mantissa_trits = n_mantissa_trits
         self.n_exponent_trits = n_exponent_trits
         self.n_sign_trit = n_sign_trit
         self.n_trits = n_sign_trit + n_exponent_trits + n_mantissa_trits
         self.n_bits = self.n_trits * 2
 
-        # Aliases for backwards compatibility
         self.n_mantissa = n_mantissa_trits
         self.n_exponent = n_exponent_trits
         self.n_sign = n_sign_trit
@@ -76,14 +99,24 @@ class MTFP:
             return trits.astype(np.int8)
 
         exp = 0
+        iterations = 0
         if value >= 1.0:
-            while value >= 3.0 and exp < self.max_exponent:
+            while (
+                value >= 3.0 and exp < self.max_exponent and iterations < MAX_ITERATIONS
+            ):
                 value /= 3.0
                 exp += 1
+                iterations += 1
         else:
-            while value < 1.0 and exp > self.min_exponent:
+            while (
+                value < 1.0 and exp > self.min_exponent and iterations < MAX_ITERATIONS
+            ):
                 value *= 3.0
                 exp -= 1
+                iterations += 1
+
+        if iterations >= MAX_ITERATIONS:
+            return self._pack_inf(value > 0)
 
         mantissa = int(value * (3 ** (self.n_mantissa_trits - 1)))
 
@@ -111,6 +144,13 @@ class MTFP:
         Returns:
             Float value
         """
+        if len(trits) != self.n_trits:
+            raise ValueError(f"Expected {self.n_trits} trits, got {len(trits)}")
+
+        for t in trits:
+            if not validate_trit_value(int(t)):
+                raise ValueError(f"Invalid trit value: {t}")
+
         if self._is_zero(trits):
             return 0.0
         if self._is_nan(trits):
@@ -259,6 +299,8 @@ def packed_bytes_to_trits(packed: np.ndarray, n_trits: int) -> np.ndarray:
 
 def mtfp_add(a: np.ndarray, b: np.ndarray, mtfp: MTFP = MTFP_16) -> np.ndarray:
     """Add two MTFP arrays."""
+    if a.shape != b.shape:
+        raise ValueError(f"Shape mismatch: {a.shape} vs {b.shape}")
     a_float = mtfp.unpack_array(a)
     b_float = mtfp.unpack_array(b)
     result_float = a_float + b_float
@@ -267,6 +309,8 @@ def mtfp_add(a: np.ndarray, b: np.ndarray, mtfp: MTFP = MTFP_16) -> np.ndarray:
 
 def mtfp_mul(a: np.ndarray, b: np.ndarray, mtfp: MTFP = MTFP_16) -> np.ndarray:
     """Multiply two MTFP arrays."""
+    if a.shape != b.shape:
+        raise ValueError(f"Shape mismatch: {a.shape} vs {b.shape}")
     a_float = mtfp.unpack_array(a)
     b_float = mtfp.unpack_array(b)
     result_float = a_float * b_float
@@ -275,6 +319,8 @@ def mtfp_mul(a: np.ndarray, b: np.ndarray, mtfp: MTFP = MTFP_16) -> np.ndarray:
 
 def mtfp_matmul(a: np.ndarray, b: np.ndarray, mtfp: MTFP = MTFP_16) -> np.ndarray:
     """Matrix multiply MTFP arrays."""
+    if a.shape[-1] != b.shape[0]:
+        raise ValueError(f"Incompatible shapes for matmul: {a.shape} vs {b.shape}")
     a_float = mtfp.unpack_array(a.reshape(-1, a.shape[-1]))
     b_float = mtfp.unpack_array(b.reshape(b.shape[0], -1))
     result_float = np.matmul(a_float, b_float.T if b.ndim > 1 else b_float)
