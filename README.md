@@ -29,6 +29,9 @@ The 2-bit encoding reserves 25% of the bit space (the **"Possibility State"**) f
 | TriX Kernel | Memory compression vs FP32 | **16x** |
 | TriX Kernel | Speedup @ 75% sparsity | **4.00x** |
 | TriX Kernel | Numerical accuracy vs PyTorch | **0.000069** max error |
+| C/AVX Kernel | MTFP throughput | **85M ops/sec** |
+| C/AVX Kernel | BitSwitch throughput | **6K ops/sec** |
+| C/AVX vs Python | Speedup ratio | **868x** |
 | Neural 6502 | Full-state accuracy | **66.4%** |
 | Neural 6502 | Per-register average | **~91%** |
 | Neural 6502 | Stack pointer accuracy | **99.9%** |
@@ -73,8 +76,29 @@ Input → [Tile Gating Network] → Active Tile Selection
         │                       │                                   │
         └───────────────────────┴───────────────────────────────────┘
                                       ↓
-                               Output (sparse)
+                                Output (sparse)
 ```
+
+### C/AVX Implementation (v1.1+)
+
+The kernel is now implemented in pure C with AVX2 acceleration:
+
+| Component | Implementation |
+|-----------|----------------|
+| L-Cache | C with LRU eviction |
+| MTFP ops | C/AVX vectorized |
+| BitSwitch | C/AVX ternary matmul |
+| Python bindings | ctypes wrapper |
+
+**Performance:**
+- MTFP pack/unpack/add/mul: 85M ops/sec
+- BitSwitch matmul: 6K ops/sec
+- 868x faster than Python baseline
+
+**Files:**
+- `bbdos/kernel/bbdos_apu.c` - Core implementation
+- `bbdos/kernel/bbdos_avx.c` - MTFP utilities
+- `bbdos/kernel/libbbdos_apu.so` - Compiled library
 
 ### Memory Compression: Reality Check
 
@@ -150,7 +174,12 @@ python scripts/evaluate_cpu.py --checkpoint weights/neural_cpu_best.pt
 ```
 two-be/
 ├── bbdos/                  # Main package
-│   ├── kernel/             # TriX NEON/CUDA kernel
+│   ├── kernel/             # C/AVX kernel (v1.1+)
+│   │   ├── bbdos_apu.c     # L-Cache + BitSwitch
+│   │   ├── bbdos_avx.c     # MTFP operations
+│   │   ├── libbbdos_apu.so # Compiled AVX2 library
+│   │   ├── bbdos_apu.py    # Python ctypes bindings
+│   │   └── archive/        # Deprecated Python implementations
 │   ├── cpu/                # Neural 6502 model
 │   └── lm/                 # NanoLPU language model
 ├── configs/                # YAML configs (seeded for reproducibility)

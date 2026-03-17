@@ -79,6 +79,7 @@ static inline float mtfp16_unpack_scalar(const int8_t* in) {
  * MTFP-16 Pack - processes 32 floats at once
  */
 void mtfp16_pack_avx(const float* input, int8_t* output, int count) {
+    if (!input || !output || count <= 0 || count > 1048576) return;
     #pragma omp parallel for schedule(static, 1024)
     for (int i = 0; i < count; i++) {
         mtfp16_pack_scalar(input[i], output + i * MTFP16_TRITS);
@@ -89,6 +90,7 @@ void mtfp16_pack_avx(const float* input, int8_t* output, int count) {
  * MTFP-16 Unpack - processes 32 floats at once  
  */
 void mtfp16_unpack_avx(const int8_t* input, float* output, int count) {
+    if (!input || !output || count <= 0 || count > 1048576) return;
     #pragma omp parallel for schedule(static, 1024)
     for (int i = 0; i < count; i++) {
         output[i] = mtfp16_unpack_scalar(input + i * MTFP16_TRITS);
@@ -99,8 +101,11 @@ void mtfp16_unpack_avx(const int8_t* input, float* output, int count) {
  * MTFP-16 Add - unpack, add, pack
  */
 void mtfp16_add_avx(const int8_t* a, const int8_t* b, int8_t* output, int count) {
-    float* temp_a = (float*)malloc(count * sizeof(float));
-    float* temp_b = (float*)malloc(count * sizeof(float));
+    if (!a || !b || !output || count <= 0 || count > 1048576) return;
+    
+    float* temp_a = (float*)calloc(count, sizeof(float));
+    float* temp_b = (float*)calloc(count, sizeof(float));
+    if (!temp_a || !temp_b) { free(temp_a); free(temp_b); return; }
     
     mtfp16_unpack_avx(a, temp_a, count);
     mtfp16_unpack_avx(b, temp_b, count);
@@ -120,8 +125,11 @@ void mtfp16_add_avx(const int8_t* a, const int8_t* b, int8_t* output, int count)
  * MTFP-16 Multiply - unpack, multiply, pack
  */
 void mtfp16_mul_avx(const int8_t* a, const int8_t* b, int8_t* output, int count) {
-    float* temp_a = (float*)malloc(count * sizeof(float));
-    float* temp_b = (float*)malloc(count * sizeof(float));
+    if (!a || !b || !output || count <= 0 || count > 1048576) return;
+    
+    float* temp_a = (float*)calloc(count, sizeof(float));
+    float* temp_b = (float*)calloc(count, sizeof(float));
+    if (!temp_a || !temp_b) { free(temp_a); free(temp_b); return; }
     
     mtfp16_unpack_avx(a, temp_a, count);
     mtfp16_unpack_avx(b, temp_b, count);

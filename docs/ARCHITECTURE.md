@@ -258,10 +258,12 @@ The slight super-linear speedup at high sparsity is due to improved cache locali
 ```
 bbdos/
 ├── kernel/
-│   ├── trix.h      # C API declarations
-│   ├── trix.cpp    # NEON implementation
-│   ├── bindings.py      # Python ctypes wrapper
-│   └── CMakeLists.txt   # Build configuration
+│   ├── bbdos_apu.c       # C/AVX core (L-Cache, BitSwitch)
+│   ├── bbdos_avx.c       # C/AVX MTFP operations
+│   ├── bbdos_apu.py      # Python ctypes bindings
+│   ├── libbbdos_apu.so   # Compiled AVX2 library
+│   ├── libbbdos_avx.so   # Compiled MTFP library
+│   └── archive/          # Deprecated Python implementations
 ├── cpu/
 │   ├── model.py         # NeuralCPU architecture
 │   └── __init__.py
@@ -269,6 +271,22 @@ bbdos/
     ├── model.py         # NanoLPU architecture  
     └── __init__.py
 ```
+
+## C/AVX Implementation (v1.1+)
+
+As of v1.1, the kernel is implemented in pure C with AVX2 acceleration:
+
+| Layer | Implementation | Notes |
+|-------|----------------|-------|
+| L-Cache | C + pthread | LRU eviction, 256 slots |
+| MTFP ops | C/AVX | 85M ops/sec throughput |
+| BitSwitch | C/AVX | 6K ops/sec matmul |
+| Python | ctypes | Zero-copy to numpy arrays |
+
+**Performance:**
+- 868x speedup over Python baseline
+- MTFP add/mul: 40M ops/sec
+- BitSwitch tile gating: Hardware-accelerated skip
 
 ## References
 
