@@ -32,8 +32,18 @@
 **Glyph Baseline:** 14.35 tok/s
 
 ### Phase 3: FFN Caching
-- [ ] Add FFN layer caching
-- [ ] Test and benchmark
+- [x] Test FFN layer caching
+
+**Results:**
+| Test | Time |
+|------|------|
+| Cold (30 layers) | 3.6ms |
+| Warm (5x30) | 15.4ms |
+| Per layer cached | 0.10ms |
+| Hit rate | 99.4% |
+
+### Phase 4: MTFP Compression
+- [ ] 
 
 ### Phase 4: MTFP Compression
 - [ ] Add MTFP pack/unpack for KV cache
