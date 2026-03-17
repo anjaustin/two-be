@@ -66,14 +66,14 @@ class MTFP:
         if np.isinf(value):
             return self._pack_inf(value > 0)
 
-        trits = np.zeros(self.n_trits, dtype=np.int8)
+        trits = np.zeros(self.n_trits, dtype=np.int16)
 
         sign = 0
         if value < 0:
             sign = 1
             value = -value
         elif value == 0:
-            return trits
+            return trits.astype(np.int8)
 
         exp = 0
         if value >= 1.0:
@@ -99,7 +99,7 @@ class MTFP:
             trits[self.n_sign + self.n_exponent_trits + i] = mantissa % 3
             mantissa //= 3
 
-        return trits
+        return trits.astype(np.int8)
 
     def unpack(self, trits: np.ndarray) -> float:
         """
@@ -123,12 +123,12 @@ class MTFP:
         exp = 0
         for i in range(self.n_exponent_trits):
             idx = self.n_sign + i
-            exp += trits[idx] * (3**i)
+            exp += int(trits[idx]) * (3**i)
 
         mantissa = 0
         for i in range(self.n_mantissa_trits):
             idx = self.n_sign + self.n_exponent_trits + i
-            mantissa += trits[idx] * (3 ** (self.n_mantissa_trits - 1 - i))
+            mantissa += int(trits[idx]) * (3 ** (self.n_mantissa_trits - 1 - i))
 
         value = mantissa / (3 ** (self.n_mantissa_trits - 1))
         value *= 3.0**exp
@@ -205,6 +205,58 @@ MTFP_16 = MTFP(n_mantissa_trits=3, n_exponent_trits=4, n_sign_trit=1)
 MTFP_32 = MTFP(n_mantissa_trits=6, n_exponent_trits=5, n_sign_trit=1)
 
 
+def trits_to_packed_bytes(trits: np.ndarray) -> np.ndarray:
+    """Convert trits (-1, 0, 1) to packed 2-bit bytes.
+
+    4 trits pack into 1 byte:
+    [trit3:2bits][trit2:2bits][trit1:2bits][trit0:2bits]
+
+    Maps: -1 -> 0b10, 0 -> 0b00, 1 -> 0b01, Dark State -> 0b11
+    """
+    n_trits = len(trits)
+    n_bytes = (n_trits + 3) // 4
+
+    packed = np.zeros(n_bytes, dtype=np.uint8)
+
+    for i in range(n_trits):
+        t = trits[i]
+        code = 0b00
+        if t == 1:
+            code = 0b01
+        elif t == -1:
+            code = 0b10
+        elif t == 2:  # Dark State / reserved
+            code = 0b11
+
+        byte_idx = i // 4
+        bit_idx = (i % 4) * 2
+        packed[byte_idx] |= code << bit_idx
+
+    return packed
+
+
+def packed_bytes_to_trits(packed: np.ndarray, n_trits: int) -> np.ndarray:
+    """Convert packed 2-bit bytes back to trits."""
+    n_bytes = len(packed)
+    trits = np.zeros(n_trits, dtype=np.int8)
+
+    for i in range(n_trits):
+        byte_idx = i // 4
+        bit_idx = (i % 4) * 2
+        code = (packed[byte_idx] >> bit_idx) & 0x03
+
+        if code == 0b01:
+            trits[i] = 1
+        elif code == 0b10:
+            trits[i] = -1
+        elif code == 0b11:
+            trits[i] = 2  # Dark State
+        else:
+            trits[i] = 0
+
+    return trits
+
+
 def mtfp_add(a: np.ndarray, b: np.ndarray, mtfp: MTFP = MTFP_16) -> np.ndarray:
     """Add two MTFP arrays."""
     a_float = mtfp.unpack_array(a)
@@ -227,3 +279,10 @@ def mtfp_matmul(a: np.ndarray, b: np.ndarray, mtfp: MTFP = MTFP_16) -> np.ndarra
     b_float = mtfp.unpack_array(b.reshape(b.shape[0], -1))
     result_float = np.matmul(a_float, b_float.T if b.ndim > 1 else b_float)
     return mtfp.pack_array(result_float.ravel()).reshape(a.shape[0], -1)
+
+
+MTFP_PRESETS = {
+    8: MTFP_8,
+    16: MTFP_16,
+    32: MTFP_32,
+}

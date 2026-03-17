@@ -27,9 +27,12 @@ from .mtfp import (
     MTFP_8,
     MTFP_16,
     MTFP_32,
+    MTFP_PRESETS,
     mtfp_add,
     mtfp_mul,
     mtfp_matmul,
+    trits_to_packed_bytes,
+    packed_bytes_to_trits,
 )
 
 TriXLinear = BitSwitchLinear
@@ -51,7 +54,10 @@ __all__ = [
     "MTFP_8",
     "MTFP_16",
     "MTFP_32",
+    "MTFP_PRESETS",
     "mtfp_add",
     "mtfp_mul",
     "mtfp_matmul",
+    "trits_to_packed_bytes",
+    "packed_bytes_to_trits",
 ]
