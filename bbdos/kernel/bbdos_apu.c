@@ -229,7 +229,9 @@ static void cache_get_stats(NeuralCache* c, int* hits, int* misses, int* evictio
 static int validate_opcode(const char* opcode) {
     static const char* valid[] = {
         "TMUL", "TADD", "TGATE", "TATTN", "TNORM", "TLOOKUP",
-        "MTFP_ADD", "MTFP_MUL", "MTFP_MATMUL"
+        "MTFP_ADD", "MTFP_MUL", "MTFP_MATMUL",
+        "RMSNorm", "SiLU", "GELU", "LayerNorm", "Softmax",
+        "BitLinear", "BitAttention"
     };
     static const char* prefixes[] = {
         "TMUL_", "TADD_", "TGATE_", "TATTN_", "TNORM_", "TLOOKUP_", "MTFP_"
@@ -403,6 +405,56 @@ static int apu_exec(BBDOS_APU* apu, const char* opcode, void** operands, int* sh
         free(temp);
         
         cache_store(apu->cache, opcode, data_hash, output, count * MTFP16_TRITS);
+        return 0;
+    }
+    
+    if (strcmp(opcode, "RMSNorm") == 0) {
+        if (!operands || !operands[0]) return -1;
+        
+        float* x = (float*)operands[0];
+        
+        float sum_sq = 0.0f;
+        for (int i = 0; i < count; i++) {
+            sum_sq += x[i] * x[i];
+        }
+        float inv_std = 1.0f / sqrtf(sum_sq / (float)count + 1e-5f);
+        
+        float* out = (float*)output;
+        for (int i = 0; i < count; i++) {
+            out[i] = x[i] * inv_std;
+        }
+        
+        return 0;
+    }
+    
+    if (strcmp(opcode, "SiLU") == 0) {
+        if (!operands || !operands[0]) return -1;
+        
+        float* x = (float*)operands[0];
+        float* out = (float*)output;
+        
+        for (int i = 0; i < count; i++) {
+            float sigmoid = 1.0f / (1.0f + expf(-x[i]));
+            out[i] = x[i] * sigmoid;
+        }
+        
+        cache_store(apu->cache, opcode, data_hash, output, count * sizeof(float));
+        return 0;
+    }
+    
+    if (strcmp(opcode, "GELU") == 0) {
+        if (!operands || !operands[0]) return -1;
+        
+        float* x = (float*)operands[0];
+        float* out = (float*)output;
+        
+        for (int i = 0; i < count; i++) {
+            float y = x[i];
+            float c = 0.044714999999999997f;
+            out[i] = 0.5f * y * (1.0f + tanhf(0.7978845608028674f * (y + c * y * y * y)));
+        }
+        
+        cache_store(apu->cache, opcode, data_hash, output, count * sizeof(float));
         return 0;
     }
     

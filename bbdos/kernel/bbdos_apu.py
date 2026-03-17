@@ -83,8 +83,28 @@ class BBDOS_APU:
 
         opcode_bytes = opcode.encode("utf-8")
 
-        output_size = max(shapes) * 8
-        output = np.zeros(output_size, dtype=np.int8)
+        mtfp_ops = {"MTFP_ADD", "MTFP_MUL", "MTFP_MATMUL"}
+        float_ops = {
+            "RMSNorm",
+            "SiLU",
+            "GELU",
+            "LayerNorm",
+            "Softmax",
+            "BitLinear",
+            "BitAttention",
+        }
+
+        count = max(shapes) if shapes else 0
+
+        if opcode in mtfp_ops:
+            output_size = count * 8
+            output = np.zeros(output_size, dtype=np.int8)
+        elif opcode in float_ops:
+            output_size = count * 4
+            output = np.zeros(count, dtype=np.float32)
+        else:
+            output_size = count * 8
+            output = np.zeros(output_size, dtype=np.int8)
 
         operand_ptrs = (ctypes.c_void_p * len(operands))()
         for i, op in enumerate(operands):
