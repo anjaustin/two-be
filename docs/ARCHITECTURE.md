@@ -288,6 +288,44 @@ As of v1.1, the kernel is implemented in pure C with AVX2 acceleration:
 - MTFP add/mul: 40M ops/sec
 - BitSwitch tile gating: Hardware-accelerated skip
 
+## L-Cache Integration (Glyph)
+
+As of Phase 5, L-Cache is integrated directly into BitNet.cpp (renamed to "Glyph"):
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Glyph + L-Cache                             │
+├─────────────────────────────────────────────────────────────────┤
+│  llama.cpp (ggml backend)                                       │
+│  └── ggml_graph_compute_thread()                                │
+│      └── bbdos_lcache_on_compute() ← HOOK AFTER EACH OP         │
+├─────────────────────────────────────────────────────────────────┤
+│  L-Cache (32 layers x 2 caches)                                 │
+│  ├── Attention: 32 slots × 8K floats                            │
+│  ├── FFN: 32 slots × 8K floats                                  │
+│  └── Hash: FNV-1a (256-byte sample)                            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Files Modified:
+- `~/Projects/glyph/3rdparty/llama.cpp/ggml/src/ggml.c` - Cache hook
+- `~/Projects/glyph/3rdparty/llama.cpp/src/llama.cpp` - Init
+- `~/Projects/glyph/CMakeLists.txt` - `GGML_BBDOS_LCACHE` flag
+
+### Build:
+```bash
+cd ~/Projects/glyph
+mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j$(nproc)
+```
+
+### Usage:
+```bash
+./build/bin/llama-cli -m models/BitNet-b1.58-2B-4T/ggml-model-i2_s.gguf \
+    -p "your prompt" -n 50 -t 4
+```
+
 ## References
 
 - [BitNet: Scaling 1-bit Transformers](https://arxiv.org/abs/2310.11453)
