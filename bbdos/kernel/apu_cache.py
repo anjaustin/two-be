@@ -128,6 +128,19 @@ def validate_operand_shape(opcode: str, operands: Tuple[np.ndarray, ...]) -> boo
             return False
         return True
 
+    elif opcode.startswith("MTFP_"):
+        if len(operands) != 2:
+            return False
+        a = operands[0]
+        b = operands[1]
+        if a.ndim != 2 or b.ndim != 2:
+            return False
+        if a.shape != b.shape:
+            return False
+        if a.shape[1] not in (4, 8, 12, 16, 24):
+            return False
+        return True
+
     return True
 
 

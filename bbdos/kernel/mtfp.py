@@ -7,8 +7,13 @@ Uses the Dark State (0b11) for exponent expansion.
 WARNING: MTFP has significant precision loss compared to float32.
 Do NOT use for financial calculations or any application requiring
 exact decimal representation.
+
+Thread Safety: MTFP operations are thread-safe when using the same
+MTFP instance from multiple threads. For maximum performance in
+multi-threaded scenarios, use separate MTFP instances per thread.
 """
 
+import threading
 import numpy as np
 from typing import Tuple, Optional
 
@@ -67,6 +72,8 @@ class MTFP:
         self.max_exponent = (3**n_exponent_trits) - 1
         self.min_exponent = -(3**n_exponent_trits) + 1
 
+        self._lock = threading.RLock()
+
         self.max_exp_value = 3 ** (n_exponent_trits - 1)
         self.mantissa_range = 3**n_mantissa_trits
 
@@ -84,6 +91,10 @@ class MTFP:
         Returns:
             Packed trits as numpy array
         """
+        with self._lock:
+            return self._pack_unlocked(value)
+
+    def _pack_unlocked(self, value: float) -> np.ndarray:
         if np.isnan(value):
             return self._pack_nan()
         if np.isinf(value):
