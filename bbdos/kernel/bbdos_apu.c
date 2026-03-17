@@ -482,13 +482,15 @@ static int apu_exec(BBDOS_APU* apu, const char* opcode, void** operands, int* sh
     
     if (strcmp(opcode, "BitAttention") == 0) {
         if (!operands || !operands[0] || !operands[1] || !operands[2]) return -1;
+        if (!shapes || shapes[0] <= 0 || shapes[1] <= 0) return -1;
         
-        float* Q = (float*)operands[0];  // [seq, head_dim]
-        float* K = (float*)operands[1];  // [seq, head_dim]
-        float* V = (float*)operands[2];  // [seq, head_dim]
+        float* Q = (float*)operands[0];
+        float* K = (float*)operands[1];
+        float* V = (float*)operands[2];
         
         int seq_len = shapes[0];
         int head_dim = shapes[1];
+        if (head_dim <= 0) return -1;
         float scale = 1.0f / sqrtf((float)head_dim);
         
         float* out = (float*)output;
@@ -534,6 +536,7 @@ static int apu_exec(BBDOS_APU* apu, const char* opcode, void** operands, int* sh
     
     if (strcmp(opcode, "BitLinear") == 0) {
         if (!operands || !operands[0] || !operands[1]) return -1;
+        if (!shapes || shapes[0] <= 0 || shapes[1] <= 0 || shapes[2] <= 0) return -1;
         
         float* x = (float*)operands[0];
         uint8_t* weights = (uint8_t*)operands[1];
@@ -542,7 +545,7 @@ static int apu_exec(BBDOS_APU* apu, const char* opcode, void** operands, int* sh
         int in_feat = shapes[1];
         int out_feat = shapes[2];
         
-        memset(output, 0, batch * out_feat * sizeof(float));
+        memset(output, 0, (size_t)batch * out_feat * sizeof(float));
         
         for (int b = 0; b < batch; b++) {
             for (int o = 0; o < out_feat; o++) {
