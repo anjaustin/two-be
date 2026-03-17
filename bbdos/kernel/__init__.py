@@ -22,6 +22,16 @@ from .apu_cache import (
     CacheStatus,
 )
 
+from .mtfp import (
+    MTFP,
+    MTFP_8,
+    MTFP_16,
+    MTFP_32,
+    mtfp_add,
+    mtfp_mul,
+    mtfp_matmul,
+)
+
 TriXLinear = BitSwitchLinear
 
 __all__ = [
@@ -37,4 +47,11 @@ __all__ = [
     "CacheLine",
     "CacheStats",
     "CacheStatus",
+    "MTFP",
+    "MTFP_8",
+    "MTFP_16",
+    "MTFP_32",
+    "mtfp_add",
+    "mtfp_mul",
+    "mtfp_matmul",
 ]

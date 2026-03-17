@@ -23,11 +23,14 @@ ALLOWED_OPCODES = frozenset(
         "TATTN",
         "TNORM",
         "TLOOKUP",
+        "MTFP_ADD",
+        "MTFP_MUL",
+        "MTFP_MATMUL",
     }
 )
 
 ALLOWED_PREFIXES = frozenset(
-    {"TMUL_", "TADD_", "TGATE_", "TATTN_", "TNORM_", "TLOOKUP_"}
+    {"TMUL_", "TADD_", "TGATE_", "TATTN_", "TNORM_", "TLOOKUP_", "MTFP_"}
 )
 
 OPCODE_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]{0,31}$")
@@ -392,6 +395,18 @@ class NeuralAPU:
             tile_size = x.shape[1] // logits.shape[1]
             tiled_gates = np.repeat(gates, tile_size, axis=1)
             return x * tiled_gates
+        elif opcode == "MTFP_ADD":
+            from .mtfp import MTFP_16, mtfp_add
+
+            return mtfp_add(operands[0], operands[1], MTFP_16)
+        elif opcode == "MTFP_MUL":
+            from .mtfp import MTFP_16, mtfp_mul
+
+            return mtfp_mul(operands[0], operands[1], MTFP_16)
+        elif opcode == "MTFP_MATMUL":
+            from .mtfp import MTFP_16, mtfp_matmul
+
+            return mtfp_matmul(operands[0], operands[1], MTFP_16)
         else:
             return np.zeros((operands[0].shape[0], 256))
 
