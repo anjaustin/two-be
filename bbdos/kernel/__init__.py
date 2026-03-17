@@ -22,8 +22,11 @@ from .apu_cache import (
     CacheStatus,
 )
 
+TriXLinear = BitSwitchLinear
+
 __all__ = [
     "BitSwitchLinear",
+    "TriXLinear",
     "pack_weights",
     "unpack_weights",
     "bitswitch_forward",

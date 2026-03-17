@@ -2,14 +2,35 @@
 Neural APU L-Cache Implementation
 
 Cache for ternary compute operations with LRU eviction policy.
+SECURE VERSION - All high/medium priority issues addressed.
 """
 
 import time
 import threading
+import re
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Any, List, Tuple
 from enum import Enum
 import numpy as np
+
+
+ALLOWED_OPCODES = frozenset(
+    {
+        "TMUL",
+        "TADD",
+        "TGATE",
+        "TATTN",
+        "TNORM",
+        "TLOOKUP",
+    }
+)
+
+ALLOWED_PREFIXES = frozenset(
+    {"TMUL_", "TADD_", "TGATE_", "TATTN_", "TNORM_", "TLOOKUP_"}
+)
+
+OPCODE_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]{0,31}$")
 
 
 class CacheStatus(Enum):
@@ -39,6 +60,7 @@ class CacheStats:
     hits: int = 0
     misses: int = 0
     evictions: int = 0
+    rejected: int = 0
     total_latency: float = 0.0
 
     @property
@@ -49,12 +71,67 @@ class CacheStats:
     def __str__(self) -> str:
         return (
             f"hits={self.hits}, misses={self.misses}, "
-            f"hit_rate={self.hit_rate:.3f}, evictions={self.evictions}"
+            f"hit_rate={self.hit_rate:.3f}, evictions={self.evictions}, "
+            f"rejected={self.rejected}"
         )
+
+
+def validate_opcode(opcode_id: str) -> bool:
+    """Validate opcode against allowlist and pattern."""
+    if opcode_id in ALLOWED_OPCODES:
+        return True
+    for prefix in ALLOWED_PREFIXES:
+        if opcode_id.startswith(prefix):
+            try:
+                int(opcode_id.split("_")[1])
+                return True
+            except (ValueError, IndexError):
+                pass
+    return False
+
+
+def validate_operand_shape(opcode: str, operands: Tuple[np.ndarray, ...]) -> bool:
+    """Validate operand shapes for given opcode."""
+    if not operands:
+        return False
+
+    if opcode == "TMUL":
+        if len(operands) < 1:
+            return False
+        a = operands[0]
+        if a.ndim != 2:
+            return False
+        if a.shape[0] <= 0 or a.shape[1] <= 0:
+            return False
+        return True
+
+    elif opcode == "TADD":
+        if len(operands) != 2:
+            return False
+        if operands[0].shape != operands[1].shape:
+            return False
+        return True
+
+    elif opcode == "TGATE":
+        if len(operands) != 2:
+            return False
+        x = operands[0]
+        logits = operands[1]
+        if x.ndim != 2 or logits.ndim != 2:
+            return False
+        if x.shape[0] != logits.shape[0]:
+            return False
+        if x.shape[1] % logits.shape[1] != 0:
+            return False
+        return True
+
+    return True
 
 
 class NeuralCache:
     def __init__(self, cache_size: int = 16, neural_hint_weight: float = 0.5):
+        if not (1 <= cache_size <= 256):
+            raise ValueError("cache_size must be between 1 and 256")
         self.cache_size = cache_size
         self.slots: Dict[int, Optional[CacheLine]] = {
             i: None for i in range(cache_size)
@@ -63,9 +140,13 @@ class NeuralCache:
         self.stats = CacheStats()
         self.neural_hint_weight = neural_hint_weight
         self._lock = threading.RLock()
-        self._access_order: List[int] = []
+        self._access_order: deque = deque(maxlen=cache_size)
 
     def lookup(self, opcode_id: str) -> Optional[Tuple[CacheLine, int]]:
+        if not validate_opcode(opcode_id):
+            self.stats.rejected += 1
+            return None
+
         with self._lock:
             if opcode_id not in self.opcode_map:
                 self.stats.misses += 1
@@ -80,30 +161,59 @@ class NeuralCache:
 
             line.hit_count += 1
             line.last_hit = time.time()
-            self._access_order.remove(slot_idx)
+
+            try:
+                self._access_order.remove(slot_idx)
+            except ValueError:
+                pass
             self._access_order.append(slot_idx)
 
             self.stats.hits += 1
             return line, slot_idx
 
-    def store(self, opcode_id: str, line: CacheLine) -> int:
+    def store(self, opcode_id: str, line: CacheLine) -> Optional[int]:
+        if not validate_opcode(opcode_id):
+            self.stats.rejected += 1
+            return None
+
         with self._lock:
             if opcode_id in self.opcode_map:
                 slot_idx = self.opcode_map[opcode_id]
             else:
-                slot_idx = self._find_eviction_slot()
+                if len(self.opcode_map) >= self.cache_size:
+                    slot_idx = self._find_eviction_slot()
+                    if slot_idx is None:
+                        self.stats.rejected += 1
+                        return None
+                else:
+                    slot_idx = self._find_empty_slot()
+                    if slot_idx is None:
+                        slot_idx = self._find_eviction_slot()
+
                 self.opcode_map[opcode_id] = slot_idx
-                self._access_order.append(slot_idx)
+                try:
+                    self._access_order.append(slot_idx)
+                except threading.ThreadError:
+                    pass
 
             self.slots[slot_idx] = line
             return slot_idx
 
-    def _find_eviction_slot(self) -> int:
+    def _find_empty_slot(self) -> Optional[int]:
+        for idx in range(self.cache_size):
+            if self.slots[idx] is None:
+                return idx
+        return None
+
+    def _find_eviction_slot(self) -> Optional[int]:
         for idx in range(self.cache_size):
             if self.slots[idx] is None:
                 return idx
 
         victim = self._select_victim()
+        if victim is None:
+            return None
+
         evicted = self.slots[victim]
         if evicted:
             opcode_to_remove = None
@@ -117,9 +227,9 @@ class NeuralCache:
 
         return victim
 
-    def _select_victim(self) -> int:
-        best_score = float("-inf")
-        victim = 0
+    def _select_victim(self) -> Optional[int]:
+        best_score = float("inf")
+        victim = None
 
         for idx in range(self.cache_size):
             line = self.slots[idx]
@@ -134,7 +244,7 @@ class NeuralCache:
 
             score = age_score + neural_bonus - latency_penalty
 
-            if score > best_score:
+            if score < best_score:
                 best_score = score
                 victim = idx
 
@@ -149,13 +259,18 @@ class NeuralCache:
                     line.avg_latency = (line.avg_latency * n + latency) / (n + 1)
 
     def invalidate(self, opcode_id: str):
+        if not validate_opcode(opcode_id):
+            return
+
         with self._lock:
             if opcode_id in self.opcode_map:
                 slot_idx = self.opcode_map[opcode_id]
                 self.slots[slot_idx] = None
                 del self.opcode_map[opcode_id]
-                if slot_idx in self._access_order:
+                try:
                     self._access_order.remove(slot_idx)
+                except ValueError:
+                    pass
 
     def clear(self):
         with self._lock:
@@ -201,6 +316,12 @@ class NeuralAPU:
             self._backend = None
 
     def exec(self, opcode: str, *operands: np.ndarray, **kwargs) -> np.ndarray:
+        if not validate_opcode(opcode):
+            raise ValueError(f"Invalid opcode: {opcode}")
+
+        if not validate_operand_shape(opcode, operands):
+            raise ValueError(f"Invalid operand shapes for opcode: {opcode}")
+
         start_time = time.time()
 
         cached_result = self.cache.lookup(opcode)
@@ -275,6 +396,9 @@ class NeuralAPU:
             return np.zeros((operands[0].shape[0], 256))
 
     def register(self, opcode: str, **kwargs):
+        if not validate_opcode(opcode):
+            raise ValueError(f"Invalid opcode: {opcode}")
+
         line = CacheLine(
             opcode_id=opcode,
             config=kwargs.get("config", 0),
@@ -291,4 +415,5 @@ class NeuralAPU:
             "misses": self.cache.stats.misses,
             "hit_rate": self.cache.stats.hit_rate,
             "evictions": self.cache.stats.evictions,
+            "rejected": self.cache.stats.rejected,
         }
