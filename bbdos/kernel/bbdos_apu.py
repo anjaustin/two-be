@@ -92,9 +92,15 @@ class BBDOS_APU:
             "Softmax",
             "BitLinear",
             "BitAttention",
+            "MatMul",
         }
 
         count = max(shapes) if shapes else 0
+
+        if opcode == "BitAttention" and len(shapes) >= 2:
+            count = shapes[0] * shapes[1]
+        elif opcode == "BitLinear" and len(shapes) >= 3:
+            count = shapes[0] * shapes[2]
 
         if opcode in mtfp_ops:
             output_size = count * 8

@@ -231,7 +231,7 @@ static int validate_opcode(const char* opcode) {
         "TMUL", "TADD", "TGATE", "TATTN", "TNORM", "TLOOKUP",
         "MTFP_ADD", "MTFP_MUL", "MTFP_MATMUL",
         "RMSNorm", "SiLU", "GELU", "LayerNorm", "Softmax",
-        "BitLinear", "BitAttention"
+        "BitLinear", "BitAttention", "MatMul"
     };
     static const char* prefixes[] = {
         "TMUL_", "TADD_", "TGATE_", "TATTN_", "TNORM_", "TLOOKUP_", "MTFP_"
@@ -454,7 +454,108 @@ static int apu_exec(BBDOS_APU* apu, const char* opcode, void** operands, int* sh
             out[i] = 0.5f * y * (1.0f + tanhf(0.7978845608028674f * (y + c * y * y * y)));
         }
         
-        cache_store(apu->cache, opcode, data_hash, output, count * sizeof(float));
+        return 0;
+    }
+    
+    if (strcmp(opcode, "Softmax") == 0) {
+        if (!operands || !operands[0]) return -1;
+        
+        float* x = (float*)operands[0];
+        
+        float max_val = -1e30f;
+        for (int i = 0; i < count; i++) {
+            if (x[i] > max_val) max_val = x[i];
+        }
+        
+        float sum_exp = 0.0f;
+        for (int i = 0; i < count; i++) {
+            sum_exp += expf(x[i] - max_val);
+        }
+        
+        float* out = (float*)output;
+        for (int i = 0; i < count; i++) {
+            out[i] = expf(x[i] - max_val) / sum_exp;
+        }
+        
+        return 0;
+    }
+    
+    if (strcmp(opcode, "BitAttention") == 0) {
+        if (!operands || !operands[0] || !operands[1] || !operands[2]) return -1;
+        
+        float* Q = (float*)operands[0];  // [seq, head_dim]
+        float* K = (float*)operands[1];  // [seq, head_dim]
+        float* V = (float*)operands[2];  // [seq, head_dim]
+        
+        int seq_len = shapes[0];
+        int head_dim = shapes[1];
+        float scale = 1.0f / sqrtf((float)head_dim);
+        
+        float* out = (float*)output;
+        
+        for (int s = 0; s < seq_len; s++) {
+            float max_att = -1e30f;
+            for (int s2 = 0; s2 <= s; s2++) {
+                float score = 0.0f;
+                for (int d = 0; d < head_dim; d++) {
+                    score += Q[s * head_dim + d] * K[s2 * head_dim + d];
+                }
+                score *= scale;
+                if (score > max_att) max_att = score;
+            }
+            
+            float sum_exp = 0.0f;
+            for (int s2 = 0; s2 <= s; s2++) {
+                float score = 0.0f;
+                for (int d = 0; d < head_dim; d++) {
+                    score += Q[s * head_dim + d] * K[s2 * head_dim + d];
+                }
+                score *= scale;
+                sum_exp += expf(score - max_att);
+            }
+            
+            for (int d = 0; d < head_dim; d++) {
+                float weighted = 0.0f;
+                for (int s2 = 0; s2 <= s; s2++) {
+                    float score = 0.0f;
+                    for (int dd = 0; dd < head_dim; dd++) {
+                        score += Q[s * head_dim + dd] * K[s2 * head_dim + dd];
+                    }
+                    score *= scale;
+                    float attn_weight = expf(score - max_att) / sum_exp;
+                    weighted += attn_weight * V[s2 * head_dim + d];
+                }
+                out[s * head_dim + d] = weighted;
+            }
+        }
+        
+        return 0;
+    }
+    
+    if (strcmp(opcode, "BitLinear") == 0) {
+        if (!operands || !operands[0] || !operands[1]) return -1;
+        
+        float* x = (float*)operands[0];
+        uint8_t* weights = (uint8_t*)operands[1];
+        
+        int batch = shapes[0];
+        int in_feat = shapes[1];
+        int out_feat = shapes[2];
+        
+        memset(output, 0, batch * out_feat * sizeof(float));
+        
+        for (int b = 0; b < batch; b++) {
+            for (int o = 0; o < out_feat; o++) {
+                float acc = 0.0f;
+                for (int i = 0; i < in_feat; i++) {
+                    uint8_t code = (weights[o * ((in_feat + 3) / 4) + i / 4] >> ((i % 4) * 2)) & 0x03;
+                    float w = (code == 0x01) ? 1.0f : (code == 0x10) ? -1.0f : 0.0f;
+                    acc += w * x[b * in_feat + i];
+                }
+                ((float*)output)[b * out_feat + o] = acc;
+            }
+        }
+        
         return 0;
     }
     
