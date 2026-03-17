@@ -16,7 +16,7 @@ else()
     set(ARCH_FLAGS -mavx2 -mfma)
 endif()
 
-add_library(trix SHARED trix.cpp)
+add_library(trix SHARED trix.cpp bitswitch.cpp bitswitch_avx.cpp)
 target_compile_options(trix PRIVATE 
     ${ARCH_FLAGS}
     -ffast-math 
@@ -24,4 +24,4 @@ target_compile_options(trix PRIVATE
 )
 
 install(TARGETS trix LIBRARY DESTINATION lib)
-install(FILES trix.h DESTINATION include)
+install(FILES trix.h bitswitch.h bitswitch_avx.h DESTINATION include)

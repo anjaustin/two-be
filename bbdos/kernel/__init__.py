@@ -1,24 +1,37 @@
 """
-TriX Kernel
+BitSwitch Kernel
 
 Sparse 2-bit matrix multiplication with tile-based routing.
-Implements ARM NEON acceleration for ternary weights.
+Implements ARM NEON and AVX acceleration for ternary weights.
 """
 
 from .bindings import (
-    TriXLinear,
-    STESign,
+    BitSwitchLinear,
     pack_weights,
     unpack_weights,
-    trix_forward,
+    bitswitch_forward,
     is_neon_available,
+    is_avx_available,
+)
+
+from .apu_cache import (
+    NeuralAPU,
+    NeuralCache,
+    CacheLine,
+    CacheStats,
+    CacheStatus,
 )
 
 __all__ = [
-    "TriXLinear",
-    "STESign",
-    "pack_weights", 
+    "BitSwitchLinear",
+    "pack_weights",
     "unpack_weights",
-    "trix_forward",
+    "bitswitch_forward",
     "is_neon_available",
+    "is_avx_available",
+    "NeuralAPU",
+    "NeuralCache",
+    "CacheLine",
+    "CacheStats",
+    "CacheStatus",
 ]
